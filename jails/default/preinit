@@ -1,0 +1,19 @@
+#!/bin/sh
+## Used by jail-create, this script is run on the host system before the
+## jail has been created and started. Ran before jail/init.
+## The default/preinit file is run for all new jails, and before any
+## type-specific jail/preinit script is run.
+## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+
+mkdir -p "$JAIL_CONF_DIR/jail/etc"
+
+# use the host's hosts file
+cp /etc/hosts "$JAIL_CONF_DIR/jail/etc/"
+
+# setup temp dns
+if [ ! -e "/usr/jails/$JAIL_ID/etc/resolv.conf" ]; then
+  echo "nameserver 8.8.8.8" > "/usr/jails/$JAIL_ID/etc/resolv.conf"
+fi
+
+# copy to the base jail so we can overwrite with our jail-specific config
+cp -R /usr/share/skel/*  /usr/jails/basejail/usr/share/skel/

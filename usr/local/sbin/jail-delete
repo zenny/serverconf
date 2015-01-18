@@ -1,0 +1,2 @@
+#!/bin/sh
+exec ezjail-admin delete -w -f "$@"

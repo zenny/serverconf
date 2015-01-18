@@ -1,0 +1,14 @@
+127.0.0.1	localhost
+::1		localhost
+
+# According to RFC 1918, you can use the following IP networks for
+# private nets which will never be connected to the Internet:
+#
+#       10.0.0.0        -   10.255.255.255
+#       172.16.0.0      -   172.31.255.255
+#       192.168.0.0     -   192.168.255.255
+
+192.168.0.1	www.localhost
+192.168.0.2	db.localhost
+192.168.0.3	redis.localhost
+192.168.0.4	amqp.localhost

@@ -1,0 +1,6 @@
+
+## Allow members of group wheel to execute any command
+%wheel ALL=(ALL) ALL
+
+## Allow members of group jailed access to jails
+%jailed ALL=(ALL) NOPASSWD: /usr/sbin/jexec

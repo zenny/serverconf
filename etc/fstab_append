@@ -1,0 +1,4 @@
+# bash requires fdescfs, see /usr/ports/shells/bash/pkg-message
+fdesc  /dev/fd	fdescfs	 rw  0	0
+# swap file
+md99   none	swap	sw,file=/usr/swap0,late	0	0

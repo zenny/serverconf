@@ -1,0 +1,180 @@
+#!/bin/sh -e
+## Create an empty jail and set its environment.
+##
+## The jail's ezjail.flavour script is automatically run within the
+## jail when it is first started.
+## This script checks for the jail-create.preinit and jail-create.postinit
+## files located in the flavor directory. These are run from the host.
+
+#shoud be something like /usr/local/opt/kola
+APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
+
+usagemsg="Usage: $(basename $0) -j jailid -i ipaddr [-t type] [-u user]"
+
+while getopts "j:i:t:u:" opt; do
+  case $opt in
+    j) JAIL_ID="$OPTARG";;
+    i) JAIL_IP="$OPTARG";;
+    t) JAIL_TYPE="$OPTARG";;
+    u) JAIL_USER="$OPTARG";;
+    \?) echo "$usagemsg" >&2; exit 1;;
+  esac
+done
+
+if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
+
+if [ ! -d "$APP_ROOT/init/jails/$JAIL_TYPE" ]; then
+  echo "Jail type '$JAIL_TYPE' doesn't exist, aborting." >&2
+  exit 1
+fi
+
+if [ -z "$JAIL_ID" -o -z "$JAIL_TYPE" -o -z "$JAIL_IP" ]; then
+  echo "$usagemsg" >&2
+  exit 1
+fi
+
+if [ $(id -u) != 0 ]; then
+  echo "This script must be run as root." 1>&2
+  exit 1
+fi
+
+# Copy or append files in one config directory to another. Source files ending
+# with '_append' are concatenated to the end of the existing destination file.
+# Permissions are ignored.
+cpconf () {
+  local srcdir="$1" destdir=$(readlink -f "$2") olddir="$PWD"
+  if [ ! -d "$srcdir" -o ! -d "$destdir" ]; then
+    echo "Error: Invalid directory arguments" >&2
+    exit 1
+  fi
+  cd "$srcdir"
+  #list all children files in src dir
+  local fp fpbasename fpdirname destpath
+  for fp in $(find . -type f); do
+    fpbasename=$(basename "$fp" | sed 's/_append$//')
+    fpdirname=$(dirname "$fp")
+    destpath="$destdir/$fpdirname/$fpbasename"
+    mkdir -p "$destdir/$fpdirname"
+    #save backup if destination file already exists
+    if [ -e "$destpath" ]; then
+      cp "$destpath" "$destpath.bak"
+    fi
+    #append or overwrite
+    if echo "$fp" | grep "_append$" > /dev/null; then
+      cat "$fp" >> "$destpath"
+    else
+      cp "$fp" "$destpath"
+    fi
+    replace_jail_vars "$destpath"
+  done
+  cd "$olddir"
+}
+
+replace_jail_vars () {
+  local filepath="$1"
+
+  if grep "\$JAIL_" "$filepath" > /dev/null; then
+    sed -i '' \
+        -e "s|\$JAIL_ID|$JAIL_ID|g" \
+        -e "s|\$JAIL_IP|$JAIL_IP|g" \
+        -e "s|\$JAIL_TYPE|$JAIL_TYPE|g" \
+        -e "s|\$JAIL_CONF_DIR|$APP_ROOT/init/jails/$jailtype|g" \
+        "$filepath"
+
+    if [ -z "$JAIL_USER" -a $(grep -l "\$JAIL_USER" "$filepath") ]; then
+      echo "Attempting to replace empty \$JAIL_USER in $filepath, ignoring." >&2
+    else
+      sed -i '' -e "s|\$JAIL_USER|$JAIL_USER|g" "$filepath"
+    fi
+  fi
+}
+
+run_host_script () {
+  local jailtype="$1" jailscript="$2"
+
+  if [ -f "$APP_ROOT/init/jails/$jailtype/$jailscript" ]; then
+    echo "Running $jailscript for '$jailtype' ..."
+    env JAIL_ID="$JAIL_ID" \
+        JAIL_IP="$JAIL_IP" \
+        JAIL_TYPE="$JAIL_TYPE" \
+        JAIL_USER="$JAIL_USER" \
+        JAIL_CONF_DIR="$APP_ROOT/init/jails/$jailtype" \
+        sh -e "$APP_ROOT/init/jails/$jailtype/$jailscript"
+  fi
+}
+
+run_jail_script () {
+  local jailtype="$1" jailscript="$2"
+
+  if [ -f "$APP_ROOT/init/jails/$jailtype/$jailscript" ]; then
+    mkdir -p "/usr/jails/$JAIL_ID/tmp/$jailtype"
+    mount_nullfs "$APP_ROOT/init/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"
+
+    echo "Running $jailscript for '$jailtype' ..."
+    env JAIL_ID="$JAIL_ID" \
+        JAIL_IP="$JAIL_IP" \
+        JAIL_TYPE="$JAIL_TYPE" \
+        JAIL_USER="$JAIL_USER" \
+        JAIL_CONF_DIR="/tmp/$jailtype" \
+        jexec "$JAIL_ID" sh -e "/tmp/$jailtype/$jailscript"
+
+    umount "/usr/jails/$JAIL_ID/tmp/$jailtype"
+    rm -rf "/usr/jails/$JAIL_ID/tmp/$jailtype"
+  fi
+}
+
+## Create
+
+ezjail-admin create "$JAIL_ID" "$JAIL_IP"
+
+## Preinit
+## Modify config dir before copying into jail.
+
+run_host_script "default" "preinit"
+
+if [ "$JAIL_TYPE" != "default" ]; then
+  run_host_script "$JAIL_TYPE" "preinit"
+fi
+
+# Copy jail config to host
+
+if [ -d "$APP_ROOT/init/jails/default/host" ]; then
+  cpconf "$APP_ROOT/init/jails/default/host" /
+fi
+if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/init/jails/$JAIL_TYPE/host" ]; then
+  cpconf "$APP_ROOT/init/jails/$JAIL_TYPE/host" /
+fi
+
+## Init
+## Start jail and run scripts within it.
+
+echo "Initializing jail ..."
+
+ezjail-admin start "$JAIL_ID"
+
+run_jail_script "default" "init"
+
+if [ "$JAIL_TYPE" != "default" ]; then
+  run_jail_script "$JAIL_TYPE" "init"
+fi
+
+# Copy jail config to jail after init has chance to install packages
+
+if [ -d "$APP_ROOT/init/jails/default/jail" ]; then
+  cpconf "$APP_ROOT/init/jails/default/jail" "/usr/jails/$JAIL_ID"
+fi
+if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/init/jails/$JAIL_TYPE/jail" ]; then
+  cpconf "$APP_ROOT/init/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
+fi
+
+## Postinit
+
+run_host_script "default" "postinit"
+
+if [ "$JAIL_TYPE" != "default" ]; then
+  run_host_script "$JAIL_TYPE" "postinit"
+fi
+
+ezjail-admin restart "$JAIL_ID"
+
+echo "$JAIL_ID jail running on $JAIL_IP"

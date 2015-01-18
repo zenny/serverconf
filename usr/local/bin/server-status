@@ -1,0 +1,75 @@
+#!/bin/sh
+## Collect system information in an easy to parse print out.
+
+PROJECTROOT="$(cd $(dirname $0)/../../../..; pwd)"
+
+if [ -f "$PROJECTROOT/.kolarc" ]; then
+  . "$PROJECTROOT/.kolarc"
+fi
+
+PGDATA="$PROJECTROOT/db/var/pgdata"
+PGHOST="127.0.0.1"
+REDISCONF="/usr/local/etc/redis.conf"
+
+##
+## POSTGRES
+##
+
+if pg_ctl --pgdata "$PGDATA" status  >/dev/null 2>&1; then
+  pgstatus='up'
+  pgsettings=$(psql -t -A -F ':' --host "$PGHOST" -U webapp -c "select name,setting from pg_settings union select 'host',host(inet_server_addr());")  
+  pginetaddr=$(echo "$pgsettings" | grep 'host:' | cut -d ':' -f2)
+  pginetport=$(echo "$pgsettings" | grep 'port:' | cut -d ':' -f2)
+  pgversion=$(echo "$pgsettings" | grep 'server_version:' | cut -d ':' -f2)
+else
+  pgstatus='down'
+fi
+
+pgconf="$PGDATA/postgresql.conf"
+if [ ! -f "$pgconf" ]; then pgconf=''; fi
+
+echo "postgres-status:$pgstatus"
+echo "postgres-host:$pginetaddr"
+echo "postgres-port:$pginetport"
+echo "postgres-data:$PGDATA"
+echo "postgres-conf:$pgconf"
+echo "postgres-version:$pgversion"
+
+##
+## REDIS
+##
+
+if [ ! -f "$REDISCONF" ]; then
+    echo "Unable to read $REDISCONF, aborting." 1>&2
+    exit 1
+fi
+
+# would prefer more accurate info off a running server
+if redis-cli ping >/dev/null 2>&1; then
+  redisstatus='up'
+  redisinfo=$(redis-cli info | grep -v -e '^#' -e '^[[:space:]]*$')
+  REDISCONF=$(echo "$redisinfo" | grep 'config_file' | cut -d ':' -f2 | tr -d '\r')
+fi
+
+# redis conf settings, strip comments and empty lines
+redissettings=$(cat "$REDISCONF" | grep -v -e '^#' -e '^[[:space:]]*$' | tr -s [:space:])
+
+redishost=$(echo "$redissettings" | grep 'bind' | cut -d ' ' -f2)
+#remove trailing slash
+redisdbdir=$(echo "$redissettings" | grep 'dir' | cut -d ' ' -f2 | sed 's:/$::')
+redisdbfile=$(echo "$redissettings" | grep 'dbfilename' | cut -d ' ' -f2)
+
+if [ "$redisstatus" == 'up' ]; then
+  redisversion=$(echo "$redisinfo" | grep 'redis_version' | cut -d ':' -f2)    
+  redisport=$(echo "$redisinfo" | grep 'tcp_port' | cut -d ':' -f2)
+else
+  redisstatus='down'
+  redisport=$(echo "$redissettings" | grep 'port' | cut -d ' ' -f2)
+fi
+
+echo "redis-status:$redisstatus"
+echo "redis-host:$redishost"
+echo "redis-port:$redisport"
+echo "redis-dbfile:$redisdbdir/$redisdbfile"
+echo "redis-conf:$REDISCONF"
+echo "redis-version:$redisversion"

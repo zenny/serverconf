@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# enable shared memory for postgres jail
+PARAMS="export jail_${JAIL_ID}_parameters=\"allow.sysvipc=1\""
+
+sed -i '.bak' -e "s/^.*parameters.*$/$PARAMS/" "/usr/local/etc/ezjail/$JAIL_ID"

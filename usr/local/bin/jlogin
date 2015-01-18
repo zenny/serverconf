@@ -1,0 +1,21 @@
+#!/bin/sh
+
+usage_msg="Usage: $(basename $0) [-u user] jail"
+JAILUSER="$USER"
+
+if [ $# -eq 0 ]; then
+  echo "$usage_msg" >&2
+  exit 1
+fi
+
+while getopts "u:" opt; do
+  case $opt in
+    u) JAILUSER="$OPTARG";;
+    \?) echo "$usage_msg" >&2; exit 1;;
+  esac
+done
+
+#grabs last command-line arg as jailid
+for lastarg; do true; done
+
+exec sudo jexec "$lastarg" /usr/bin/login -f "$JAILUSER"
