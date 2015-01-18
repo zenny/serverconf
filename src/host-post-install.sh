@@ -1,7 +1,6 @@
-#!/bin/sh
-## fetch --no-verify-peer --user-agent "Wget/1.16" "https://$USER:$PASS@bitbucket.org/hazelnut/kola/raw/master/init/post-install.sh"
+#!/bin/sh -e
 
-REPO_URL="https://bitbucket.org/hazelnut/kola.git"
+REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 REPO_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
 
 print_help () {
@@ -158,9 +157,9 @@ if ! git clone "$REPO_AUTH" "$REPO_ROOT"; then
     exit 1
 fi
 
-cpconf "$REPO_ROOT/init/etc" /etc
-cpconf "$REPO_ROOT/init/usr/local/etc" /usr/local/etc
-cpconf "$REPO_ROOT/init/usr/share/skel" /usr/share/skel
+cpconf "$REPO_ROOT/host/etc" /etc
+cpconf "$REPO_ROOT/host/usr/local/etc" /usr/local/etc
+cpconf "$REPO_ROOT/host/usr/share/skel" /usr/share/skel
 
 #create 1g swap file, referenced in /etc/fstab
 dd if=/dev/zero of=/usr/swap0 bs=1m count=1024
@@ -174,8 +173,8 @@ swapon -aqL
 chmod 700 /usr/share/skel/dot.ssh
 chmod 600 /usr/share/skel/dot.ssh/authorized_keys
 
-ln -s "$REPO_ROOT"/init/usr/local/bin/* /usr/local/bin/
-ln -s "$REPO_ROOT"/init/usr/local/sbin/* /usr/local/sbin/
+ln -s "$REPO_ROOT"/host/usr/local/bin/* /usr/local/bin/
+ln -s "$REPO_ROOT"/host/usr/local/sbin/* /usr/local/sbin/
 
 service netif start lo1
 service syslogd restart
