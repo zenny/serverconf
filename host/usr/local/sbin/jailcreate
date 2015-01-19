@@ -8,6 +8,8 @@
 
 #shoud be something like /usr/local/opt/kola
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
+#add current user to jail by default (even if sudo'd)
+JAIL_USER="$(who -m | cut -d ' ' -f1)"
 
 usagemsg="Usage: $(basename $0) -j jailid -i ipaddr [-t type] [-u user]"
 

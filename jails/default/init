@@ -18,9 +18,10 @@ cp /usr/share/skel/dot.profile "$HOME/.profile"
 chsh -s /bin/sh
 
 # add user if they don't already exist
-
 if [ -n "$JAIL_USER" ]; then
   if ! id "$JAIL_USER" >/dev/null 2>&1; then
-    pw useradd -n "$JAIL_USER" -m -s /bin/sh
+    if pw useradd -n "$JAIL_USER" -m -s /bin/sh; then
+      echo "Added user '$JAIL_USER' to $JAIL_ID jail"
+    fi
   fi
 fi

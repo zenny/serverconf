@@ -5,10 +5,8 @@
 ## type-specific jail/preinit script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
-mkdir -p "$JAIL_CONF_DIR/jail/etc"
-
 # use the host's hosts file
-cp /etc/hosts "$JAIL_CONF_DIR/jail/etc/"
+cp /etc/hosts "/usr/jails/$JAIL_ID/etc/hosts"
 
 # setup temp dns
 if [ ! -e "/usr/jails/$JAIL_ID/etc/resolv.conf" ]; then
