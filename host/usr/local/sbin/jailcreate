@@ -38,55 +38,15 @@ if [ $(id -u) != 0 ]; then
   exit 1
 fi
 
-# Copy or append files in one config directory to another. Source files ending
-# with '_append' are concatenated to the end of the existing destination file.
-# Permissions are ignored.
-cpconf () {
-  local srcdir="$1" destdir=$(readlink -f "$2") olddir="$PWD"
-  if [ ! -d "$srcdir" -o ! -d "$destdir" ]; then
-    echo "Error: Invalid directory arguments" >&2
-    exit 1
-  fi
-  cd "$srcdir"
-  #list all children files in src dir
-  local fp fpbasename fpdirname destpath
-  for fp in $(find . -type f); do
-    fpbasename=$(basename "$fp" | sed 's/_append$//')
-    fpdirname=$(dirname "$fp")
-    destpath="$destdir/$fpdirname/$fpbasename"
-    mkdir -p "$destdir/$fpdirname"
-    #save backup if destination file already exists
-    if [ -e "$destpath" ]; then
-      cp "$destpath" "$destpath.bak"
-    fi
-    #append or overwrite
-    if echo "$fp" | grep "_append$" > /dev/null; then
-      cat "$fp" >> "$destpath"
-    else
-      cp "$fp" "$destpath"
-    fi
-    replace_jail_vars "$destpath"
-  done
-  cd "$olddir"
-}
+cp_conf_dir () {
+  local srcdir="$1" destdir=$(readlink -f "$2")
 
-replace_jail_vars () {
-  local filepath="$1"
-
-  if grep "\$JAIL_" "$filepath" > /dev/null; then
-    sed -i '' \
-        -e "s|\$JAIL_ID|$JAIL_ID|g" \
-        -e "s|\$JAIL_IP|$JAIL_IP|g" \
-        -e "s|\$JAIL_TYPE|$JAIL_TYPE|g" \
-        -e "s|\$JAIL_CONF_DIR|$APP_ROOT/jails/$jailtype|g" \
-        "$filepath"
-
-    if [ -z "$JAIL_USER" -a $(grep -l "\$JAIL_USER" "$filepath") ]; then
-      echo "Attempting to replace empty \$JAIL_USER in $filepath, ignoring." >&2
-    else
-      sed -i '' -e "s|\$JAIL_USER|$JAIL_USER|g" "$filepath"
-    fi
-  fi
+  env JAIL_ID="$JAIL_ID" \
+      JAIL_IP="$JAIL_IP" \
+      JAIL_TYPE="$JAIL_TYPE" \
+      JAIL_USER="$JAIL_USER" \
+      JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
+      sh -e "$APP_ROOT/src/copy-conf-dir.sh" "$srcdir" "$destdir"
 }
 
 run_host_script () {
@@ -139,10 +99,10 @@ fi
 # Copy jail config to host
 
 if [ -d "$APP_ROOT/jails/default/host" ]; then
-  cpconf "$APP_ROOT/jails/default/host" /
+  cp_conf_dir "$APP_ROOT/jails/default/host" /
 fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/host" ]; then
-  cpconf "$APP_ROOT/jails/$JAIL_TYPE/host" /
+  cp_conf_dir "$APP_ROOT/jails/$JAIL_TYPE/host" /
 fi
 
 ## Init
@@ -161,10 +121,10 @@ fi
 # Copy jail config to jail after init has chance to install packages
 
 if [ -d "$APP_ROOT/jails/default/jail" ]; then
-  cpconf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
+  cp_conf_dir "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
 fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
-  cpconf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
+  cp_conf_dir "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
 fi
 
 ## Postinit
