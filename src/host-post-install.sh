@@ -4,16 +4,16 @@ REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 APP_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
 
 print_help () {
-    echo "Configure the FreeBSD app server. Run on the host system." >&2
-    echo "Usage: $(basename $0) [options]" >&2
-    echo "Options:" >&2
-    echo " -h           Print this help message" >&2;
-    echo " -j=jail(s)  List of jail types to install on the host" >&2;
-    echo "             e.g. 'default:192.168.0.1,postgresql:192.168.0.2'" >&2;
-    echo " -u=username  User on host system to manage app (sudo privledges)" >&2
-    echo " -p=password  App user password" >&2
-    echo " -U=username  Repo user" >&2
-    echo " -P=password  Repo password" >&2
+  echo "Configure the FreeBSD app server. Run on the host system." >&2
+  echo "Usage: $(basename $0) [options]" >&2
+  echo "Options:" >&2
+  echo " -h           Print this help message" >&2;
+  echo " -j=jail(s)   List of jail types to install on the host" >&2;
+  echo "              e.g. 'default:192.168.0.1,postgresql:192.168.0.2'" >&2;
+  echo " -u=username  User on host system to manage app (sudo privledges)" >&2
+  echo " -p=password  App user password" >&2
+  echo " -U=username  Repo user" >&2
+  echo " -P=password  Repo password" >&2
 }
 
 ##
@@ -21,56 +21,56 @@ print_help () {
 ##
 
 while getopts "j:u:p:U:P:h" opt; do
-    case $opt in
-        j) JAILLIST="$OPTARG";;
-        u) APP_USER="$OPTARG";;
-        p) APP_PASS="$OPTARG";;
-        U) REPO_USER="$OPTARG";;
-        P) REPO_PASS="$OPTARG";;
-        h) print_help; exit 0;;
-        \?) print_help; exit 1;;
-    esac
+  case $opt in
+    j) JAILLIST="$OPTARG";;
+    u) APP_USER="$OPTARG";;
+    p) APP_PASS="$OPTARG";;
+    U) REPO_USER="$OPTARG";;
+    P) REPO_PASS="$OPTARG";;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
 done
 
 if [ $(uname -s) != "FreeBSD" ]; then
-    echo "This script must be run on FreeBSD." 1>&2
-    exit 1
+  echo "This script must be run on FreeBSD." 1>&2
+  exit 1
 fi
 
 if [ $(id -u) != 0 ]; then
-    echo "This script must be run as root." 1>&2
-    echo "If a member of the 'wheel' group, try: su - root -c \"./$(basename $0) -h\"" 1>&2
-    exit 1
+  echo "This script must be run as root." 1>&2
+  echo "If a member of the 'wheel' group, try: su - root -c \"./$(basename $0) -h\"" 1>&2
+  exit 1
 fi
 
 if [ -z "$APP_USER" ]; then
-    read -p "Enter the app user: " APP_USER
-    if [ -z "$APP_USER" ]; then
-        echo "Requires a user, aborting." 1>&2
-        exit 1
-    fi
+  read -p "Enter the app user: " APP_USER
+  if [ -z "$APP_USER" ]; then
+    echo "Requires a user, aborting." 1>&2
+    exit 1
+  fi
 fi
 
 if [ -z "$APP_PASS" ]; then
-    stty -echo
-    read -p "Password for app user '$APP_USER': " APP_PASS; echo
-    stty echo
-    if [ -z "$APP_PASS" ]; then
-        echo "Invalid password, aborting." 1>&2
-        exit 1
-    fi
+  stty -echo
+  read -p "Password for app user '$APP_USER': " APP_PASS; echo
+  stty echo
+  if [ -z "$APP_PASS" ]; then
+    echo "Invalid password, aborting." 1>&2
+    exit 1
+  fi
 fi
 
 repo_host=$(echo "$REPO_URL" | awk -F/ '{print $3}')
 
 if [ -z "$REPO_USER" ]; then
-    read -p "'$repo_host' username: " REPO_USER
+  read -p "'$repo_host' username: " REPO_USER
 fi
 
 if [ -z "$REPO_PASS" ]; then
-    stty -echo
-    read -p "'$repo_host' password: " REPO_PASS; echo
-    stty echo
+  stty -echo
+  read -p "'$repo_host' password: " REPO_PASS; echo
+  stty echo
 fi
 
 ##
@@ -81,7 +81,7 @@ env PAGER=cat freebsd-update fetch install
 
 ## Update package system (binaries)
 if ! pkg -N >/dev/null 2>&1; then
-    env ASSUME_ALWAYS_YES=YES pkg bootstrap
+  env ASSUME_ALWAYS_YES=YES pkg bootstrap
 fi
 pkg update
 
@@ -112,8 +112,8 @@ repo_auth_url="https://$REPO_USER:$REPO_PASS@${REPO_URL#*//}"
 mkdir -p "$APP_ROOT"
 
 if ! git clone "$repo_auth_url" "$APP_ROOT"; then
-    echo "Unable to download repo, aborting." 1>&2
-    exit 1
+  echo "Unable to download repo, aborting." 1>&2
+  exit 1
 fi
 
 ##
@@ -162,10 +162,10 @@ cp /usr/share/skel/dot.profile "$HOME/.profile" #use updated version
 pw groupadd jailed #access to jexec
 
 if [ -n "$APP_PASS" ]; then
-    echo "$APP_PASS" | pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
+  echo "$APP_PASS" | pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
 else
-    pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash
-    passwd "$APP_USER"
+  pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash
+  passwd "$APP_USER"
 fi
 
 #make owner of repo
