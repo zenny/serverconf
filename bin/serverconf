@@ -49,7 +49,7 @@ fi
 ## Root shell defaults to csh.
 
 repo_auth_url="https://$REPO_USER:$REPO_PASS@${INIT_URL#*//}"
-init_file="/tmp/host-post-install.sh"
+init_file="/tmp/$(basename $INIT_URL)"
 
 su_msg="sh -c 'if [ \$(id -u) != 0 ]; then echo -n \"Must run as superuser. \"; fi'"
 
