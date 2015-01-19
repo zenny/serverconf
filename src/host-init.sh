@@ -121,14 +121,8 @@ fi
 ## SYSTEM CONFIG
 ##
 
-#create 1g swap file, referenced in /etc/fstab
-if [ -n "$SWAP_FILE_SIZE" ]; then
-  dd if=/dev/zero of=/usr/swap0 bs=1m count=$SWAP_FILE_SIZE
-  #reload /etc/fstab
-  mount -a
-  #load swap file. verify with: swapinfo -g
-  swapon -aqL
-fi
+#turn off swap using current /etc/fstab. will reload later
+swapoff -aL
 
 cp_conf_dir () {
   local srcdir="$1" destdir=$(readlink -f "$2")
@@ -147,8 +141,22 @@ chmod 600 /usr/share/skel/dot.ssh/authorized_keys
 ln -s "$APP_ROOT"/host/usr/local/bin/* /usr/local/bin/
 ln -s "$APP_ROOT"/host/usr/local/sbin/* /usr/local/sbin/
 
-service netif start lo1
+# Create swap file, referenced in /etc/fstab
+swap_file="/usr/swap0"
+echo "Creating swap file $swap_file (${SWAP_FILE_SIZE}m) ..."
+
+dd if=/dev/zero of="$swap_file" bs=1m count="$SWAP_FILE_SIZE"
+
+#reload /etc/fstab
+mount -a
+#load swap file. will error if swap isn't off: swapoff -aL
+swapon -aL
+#verify swap
+swapinfo -hm
+
+# Restart services
 service syslogd restart
+service netif start lo1
 service pf start
 #pfctl -F all -f /etc/pf.conf
 #service ntpd start

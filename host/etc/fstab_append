@@ -1,3 +1,4 @@
+# Added by fstab_append ...
 # bash requires fdescfs, see /usr/ports/shells/bash/pkg-message
 fdesc  /dev/fd	fdescfs	 rw  0	0
 # swap file
