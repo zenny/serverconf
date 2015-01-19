@@ -156,7 +156,7 @@ swapinfo -hm
 
 # Restart services
 service syslogd restart
-service netif start lo1
+service netif cloneup lo1
 service pf start
 #pfctl -F all -f /etc/pf.conf
 #service ntpd start
