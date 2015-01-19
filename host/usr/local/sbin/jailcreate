@@ -40,7 +40,6 @@ fi
 
 cp_conf_dir () {
   local srcdir="$1" destdir=$(readlink -f "$2")
-
   env JAIL_ID="$JAIL_ID" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \

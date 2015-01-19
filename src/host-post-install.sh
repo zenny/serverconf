@@ -86,37 +86,6 @@ fi
 
 REPO_AUTH="https://$REPO_USER:$REPO_PASS@${REPO_URL#*//}"
 
-# Copy or append files in one config directory to another. Source files ending
-# with '_append' are concatenated to the end of the existing destination file.
-# Permissions are ignored.
-cpconf () {
-    local srcdir="$1" destdir=$(readlink -f "$2") olddir="$PWD"
-    if [ ! -d "$srcdir" -o ! -d "$destdir" ]; then
-        echo "Error: Invalid directory arguments" >&2
-        exit 1
-    fi
-    cd "$srcdir"
-    #list all children files in src dir
-    local fp fpbasename fpdirname destpath
-    for fp in $(find . -type f); do
-        fpbasename=$(basename "$fp" | sed 's/_append$//')
-        fpdirname=$(dirname "$fp")
-        destpath="$destdir/$fpdirname/$fpbasename"
-        mkdir -p "$destdir/$fpdirname"
-        #save backup if destination file already exists
-        if [ -e "$destpath" ]; then
-            cp "$destpath" "$destpath.bak"
-        fi
-        #append or overwrite
-        if echo "$fp" | grep "_append$" > /dev/null; then
-            cat "$fp" >> "$destpath"
-        else
-            cp "$fp" "$destpath"
-        fi
-    done
-    cd "$olddir"
-}
-
 ##
 ## BASE PACKAGES
 ##
@@ -157,9 +126,15 @@ if ! git clone "$REPO_AUTH" "$REPO_ROOT"; then
     exit 1
 fi
 
-cpconf "$REPO_ROOT/host/etc" /etc
-cpconf "$REPO_ROOT/host/usr/local/etc" /usr/local/etc
-cpconf "$REPO_ROOT/host/usr/share/skel" /usr/share/skel
+cp_conf_dir () {
+  local srcdir="$1" destdir=$(readlink -f "$2")
+  env HOST_CONF_DIR="$REPO_ROOT/host" \
+      sh -e "$REPO_ROOT/src/copy-conf-dir.sh" "$srcdir" "$destdir"
+}
+
+cp_conf_dir "$REPO_ROOT/host/etc" /etc
+cp_conf_dir "$REPO_ROOT/host/usr/local/etc" /usr/local/etc
+cp_conf_dir "$REPO_ROOT/host/usr/share/skel" /usr/share/skel
 
 #create 1g swap file, referenced in /etc/fstab
 dd if=/dev/zero of=/usr/swap0 bs=1m count=1024

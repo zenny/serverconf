@@ -17,29 +17,37 @@ if [ -n "$JAIL_ID" ]; then
   SUBSTITUTE_FLAG=1
 fi
 
-# Substitute the HOST_* and JAIL_* vars within config files
-# when placing them at the destination.
-substitute_vars () {
-  local filepath="$1"
+sub_var () {
+  local varname="$1" filepath="$2"
 
-  if grep "\$JAIL_" "$filepath" > /dev/null; then
-    sed -i '' \
-        -e "s|\$JAIL_ID|$JAIL_ID|g" \
-        -e "s|\$JAIL_IP|$JAIL_IP|g" \
-        -e "s|\$JAIL_TYPE|$JAIL_TYPE|g" \
-        -e "s|\$JAIL_CONF_DIR|$JAIL_CONF_DIR|g" \
-        "$filepath"
+  if grep "\$$varname" "$filepath" > /dev/null; then
+    local subtext=$(eval echo "\$$(echo $varname)")
 
-    if [ -z "$JAIL_USER" -a $(grep -l "\$JAIL_USER" "$filepath") ]; then
-      echo "Attempting to replace empty \$JAIL_USER in $filepath, ignoring." >&2
+    if [ -n "$subtext" ]; then
+      sed -i '' -e "s|\$$varname|$subtext|g" "$filepath"
     else
-      sed -i '' -e "s|\$JAIL_USER|$JAIL_USER|g" "$filepath"
+      echo "Attempting to replace empty \$$varname in $filepath, ignoring." >&2
     fi
   fi
 }
 
+# Substitute the HOST_* and JAIL_* vars within config files
+# when placing them at the destination.
+sub_vars () {
+  local filepath="$1"
 
-cd "$srcdir"
+  # Jail vars
+  sub_var 'JAIL_ID' "$filepath"
+  sub_var 'JAIL_IP' "$filepath"
+  sub_var 'JAIL_TYPE' "$filepath"
+  sub_var 'JAIL_USER' "$filepath"
+  sub_var 'JAIL_CONF_DIR' "$filepath"
+
+  # Host vars
+  sub_var 'HOST_CONF_DIR' "$filepath"
+}
+
+cd "$SRCDIR"
 
 #list all children files in src dir
 
@@ -47,7 +55,7 @@ for fp in $(find . -type f); do
   #get proper file destination path
   fpbasename=$(basename "$fp" | sed 's/_append$//')
   fpdirname=$(dirname "$fp")
-  destpath="$destdir/$fpdirname/$fpbasename"
+  destpath="$DESTDIR/$fpdirname/$fpbasename"
 
   #save backup if destination file already exists
   if [ -e "$destpath" ]; then
@@ -64,6 +72,6 @@ for fp in $(find . -type f); do
   fi
 
   if [ -n "$SUBSTITUTE_FLAG" ]; then
-    substitute_vars "$destpath"
+    sub_vars "$destpath"
   fi
 done
