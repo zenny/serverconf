@@ -23,7 +23,7 @@ done
 
 if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
 
-if [ ! -d "$APP_ROOT/host/jails/$JAIL_TYPE" ]; then
+if [ ! -d "$APP_ROOT/jails/$JAIL_TYPE" ]; then
   echo "Jail type '$JAIL_TYPE' doesn't exist, aborting." >&2
   exit 1
 fi
@@ -78,7 +78,7 @@ replace_jail_vars () {
         -e "s|\$JAIL_ID|$JAIL_ID|g" \
         -e "s|\$JAIL_IP|$JAIL_IP|g" \
         -e "s|\$JAIL_TYPE|$JAIL_TYPE|g" \
-        -e "s|\$JAIL_CONF_DIR|$APP_ROOT/host/jails/$jailtype|g" \
+        -e "s|\$JAIL_CONF_DIR|$APP_ROOT/jails/$jailtype|g" \
         "$filepath"
 
     if [ -z "$JAIL_USER" -a $(grep -l "\$JAIL_USER" "$filepath") ]; then
@@ -92,23 +92,23 @@ replace_jail_vars () {
 run_host_script () {
   local jailtype="$1" jailscript="$2"
 
-  if [ -f "$APP_ROOT/host/jails/$jailtype/$jailscript" ]; then
+  if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
     echo "Running $jailscript for '$jailtype' ..."
     env JAIL_ID="$JAIL_ID" \
         JAIL_IP="$JAIL_IP" \
         JAIL_TYPE="$JAIL_TYPE" \
         JAIL_USER="$JAIL_USER" \
-        JAIL_CONF_DIR="$APP_ROOT/host/jails/$jailtype" \
-        sh -e "$APP_ROOT/host/jails/$jailtype/$jailscript"
+        JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
+        sh -e "$APP_ROOT/jails/$jailtype/$jailscript"
   fi
 }
 
 run_jail_script () {
   local jailtype="$1" jailscript="$2"
 
-  if [ -f "$APP_ROOT/host/jails/$jailtype/$jailscript" ]; then
+  if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
     mkdir -p "/usr/jails/$JAIL_ID/tmp/$jailtype"
-    mount_nullfs "$APP_ROOT/host/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"
+    mount_nullfs "$APP_ROOT/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"
 
     echo "Running $jailscript for '$jailtype' ..."
     env JAIL_ID="$JAIL_ID" \
@@ -138,11 +138,11 @@ fi
 
 # Copy jail config to host
 
-if [ -d "$APP_ROOT/host/jails/default/host" ]; then
-  cpconf "$APP_ROOT/host/jails/default/host" /
+if [ -d "$APP_ROOT/jails/default/host" ]; then
+  cpconf "$APP_ROOT/jails/default/host" /
 fi
-if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/host/jails/$JAIL_TYPE/host" ]; then
-  cpconf "$APP_ROOT/host/jails/$JAIL_TYPE/host" /
+if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/host" ]; then
+  cpconf "$APP_ROOT/jails/$JAIL_TYPE/host" /
 fi
 
 ## Init
@@ -160,11 +160,11 @@ fi
 
 # Copy jail config to jail after init has chance to install packages
 
-if [ -d "$APP_ROOT/host/jails/default/jail" ]; then
-  cpconf "$APP_ROOT/host/jails/default/jail" "/usr/jails/$JAIL_ID"
+if [ -d "$APP_ROOT/jails/default/jail" ]; then
+  cpconf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
 fi
-if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/host/jails/$JAIL_TYPE/jail" ]; then
-  cpconf "$APP_ROOT/host/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
+if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
+  cpconf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
 fi
 
 ## Postinit
