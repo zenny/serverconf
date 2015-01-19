@@ -1,0 +1,67 @@
+#!/bin/sh -e
+
+INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
+
+print_help () {
+  echo "Initialize a newly created FreeBSD server." >&2;
+  echo "Usage: $(basename $0) [options] host" >&2;
+  echo "Options:" >&2;
+  echo " -h          Print this help message" >&2;
+  echo " -j=jail(s)  List of jail types to install on the host" >&2;
+  echo "             e.g. 'default:192.168.0.1,postgresql:192.168.0.2'" >&2;
+  echo " -U=username  Repo user" >&2;
+  echo " -P=password  Repo password" >&2;
+}
+
+INSTALL_ARGS=''
+
+while getopts "j:U:P:h" opt; do
+  case $opt in
+    j) INSTALL_ARGS="-j $OPTARG $INSTALL_ARGS";;
+    U) REPO_USER="$OPTARG";;
+    P) REPO_PASS="$OPTARG";;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
+done
+
+for lastarg; do true; done
+HOST_NAME="$lastarg"
+
+if [ -z "$HOST_NAME" ]; then
+  print_help
+  exit 1
+fi
+
+repo_host=$(echo "$INIT_URL" | awk -F/ '{print $3}')
+
+if [ -z "$REPO_USER" ]; then
+  read -p "'$repo_host' username: " REPO_USER
+fi
+
+if [ -z "$REPO_PASS" ]; then
+  stty -echo
+  read -p "'$repo_host' password: " REPO_PASS; echo
+  stty echo
+fi
+
+## Set up commands to run on remote server.
+## Root shell defaults to csh.
+
+repo_auth_url="https://$REPO_USER:$REPO_PASS@${INIT_URL#*//}"
+init_file="/tmp/host-post-install.sh"
+
+su_msg="sh -c 'if [ \$(id -u) != 0 ]; then echo -n \"Must run as superuser. \"; fi'"
+
+#new install doesn't have any ssl certificates
+#need to spoof user-agent because of bitbucket problem
+get_file="fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o $init_file $repo_auth_url"
+
+check_file="if (! -e $init_file) echo \"Unable to run install script, aborting.\""
+
+run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS $INSTALL_ARGS"
+
+del_file="if (-e $init_file) rm $init_file"
+
+# and ... go!
+ssh -X -t -t "$HOST_NAME" "$su_msg; su - root -f -c '$get_file; $check_file; $run_file; $del_file;'"

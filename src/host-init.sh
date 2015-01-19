@@ -2,18 +2,19 @@
 
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 APP_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
+SWAP_FILE_SIZE=1024 #1gig
 
 print_help () {
-  echo "Configure the FreeBSD app server. Run on the host system." >&2
-  echo "Usage: $(basename $0) [options]" >&2
-  echo "Options:" >&2
+  echo "Configure the FreeBSD app server. Run on the host system." >&2;
+  echo "Usage: $(basename $0) [options]" >&2;
+  echo "Options:" >&2;
   echo " -h           Print this help message" >&2;
   echo " -j=jail(s)   List of jail types to install on the host" >&2;
   echo "              e.g. 'default:192.168.0.1,postgresql:192.168.0.2'" >&2;
-  echo " -u=username  User on host system to manage app (sudo privledges)" >&2
-  echo " -p=password  App user password" >&2
-  echo " -U=username  Repo user" >&2
-  echo " -P=password  Repo password" >&2
+  echo " -u=username  User on host system to manage app (sudo privledges)" >&2;
+  echo " -p=password  App user password" >&2;
+  echo " -U=username  Repo user" >&2;
+  echo " -P=password  Repo password" >&2;
 }
 
 ##
@@ -120,6 +121,15 @@ fi
 ## SYSTEM CONFIG
 ##
 
+#create 1g swap file, referenced in /etc/fstab
+if [ -n "$SWAP_FILE_SIZE" ]; then
+  dd if=/dev/zero of=/usr/swap0 bs=1m count=$SWAP_FILE_SIZE
+  #reload /etc/fstab
+  mount -a
+  #load swap file. verify with: swapinfo -g
+  swapon -aqL
+fi
+
 cp_conf_dir () {
   local srcdir="$1" destdir=$(readlink -f "$2")
   env HOST_CONF_DIR="$APP_ROOT/host" \
@@ -129,14 +139,6 @@ cp_conf_dir () {
 cp_conf_dir "$APP_ROOT/host/etc" /etc
 cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
 cp_conf_dir "$APP_ROOT/host/usr/share/skel" /usr/share/skel
-
-#create 1g swap file, referenced in /etc/fstab
-dd if=/dev/zero of=/usr/swap0 bs=1m count=1024
-
-#reload /etc/fstab
-mount -a
-#load swap file. verify with: swapinfo -g
-swapon -aqL
 
 #git doesn't keep permissions
 chmod 700 /usr/share/skel/dot.ssh
@@ -178,13 +180,14 @@ chown -R "$APP_USER" "$APP_ROOT"
 #installs the basejail (use -sp for sources and ports)
 ezjail-admin install
 
+# jail list format: 'id:ip[:type],...'
 # if [ -n "$JAILLIST" ]; then
-#   for jailarg in $(echo "$JAILLIST" | tr "," " "); do
-#     jailtype=$(echo "$jailarg" | cut -d ':' -f1)
+#   for jailarg in $(echo "$JAILLIST" | tr ',' ' '); do
+#     jailid=$(echo "$jailarg" | cut -d ':' -f1)
 #     jailip=$(echo "$jailarg" | cut -d ':' -f2)
-
-#     echo "Creating jail type: $jailtype, on ip: $jailip"
-#     jailcreate -j "$jailid" -i "$jailip" -u "$APP_USER" -t "$jailtype"
+#     jailtype=$(echo "$jailarg" | cut -d ':' -f3)
+#     echo "Creating jail '$jailid' (type: $jailtype) on $jailip"
+#     jailcreate -j "$jailid" -i "$jailip" -t "$jailtype" -u "$APP_USER"
 #   done
 # fi
 
@@ -197,7 +200,6 @@ ezjail-admin install
 ## CLEANUP
 ##
 
-cd "$HOME"
 echo "Done. Should probably reboot."
 
 #exec /usr/bin/env ENV="$HOME/.profile" /bin/sh
