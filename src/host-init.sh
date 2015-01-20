@@ -3,6 +3,9 @@
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 APP_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
 SWAP_FILE_SIZE=1024 #1gig
+MAIL_SERVER="smtp.gmail.com:587"
+MAIL_USER="serverconfstatus@gmail.com"
+MAIL_PASSWORD=''
 
 print_help () {
   echo "Configure the FreeBSD app server. Run on the host system." >&2;
@@ -74,6 +77,14 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
+#outgoing mail only. no command-line options, use env
+if [ -n "$MAIL_USER" -a -z "$MAIL_PASSWORD" ]; then
+  echo "Configuring mail for '$MAIL_SERVER' (outgoing only)"
+  stty -echo
+  read -p "'$MAIL_USER' password: " MAIL_PASSWORD; echo
+  stty echo
+fi
+
 ##
 ## BASE PACKAGES
 ##
@@ -131,7 +142,9 @@ cp_conf_dir () {
 }
 
 cp_conf_dir "$APP_ROOT/host/etc" /etc
-cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
+#includes sstmp conf
+env MAIL_SERVER="$MAIL_SERVER" MAIL_USER="$MAIL_USER" MAIL_PASSWORD="$MAIL_PASSWORD" \
+    cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
 cp_conf_dir "$APP_ROOT/host/usr/share/skel" /usr/share/skel
 
 #git doesn't keep permissions
@@ -162,6 +175,7 @@ service pf start
 #service ntpd start
 
 #sendmail replaced with outbound-only ssmtp
+chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 service sendmail stop
 killall sendmail
 

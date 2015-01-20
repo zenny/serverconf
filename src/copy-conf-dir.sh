@@ -52,8 +52,9 @@ sub_vars () {
   sub_var 'HOSTNAME' "$HOST_NAME"
   sub_var 'HOST_USER' "$HOST_USER"
   sub_var 'USER' "$HOST_USER"
-	sub_var 'MAIL_USER' "$MAIL_USER"
-	sub_var 'MAIL_PASSWORD' "$MAIL_PASSWORD"
+  sub_var 'MAIL_SERVER' "$MAIL_SERVER"
+  sub_var 'MAIL_USER' "$MAIL_USER"
+  sub_var 'MAIL_PASSWORD' "$MAIL_PASSWORD"
 }
 
 cd "$SRCDIR"

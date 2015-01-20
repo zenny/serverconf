@@ -4,3 +4,13 @@
 ## The default/postinit file is run for all new jails, and before any
 ## type-specific jail/postinit script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+
+# use host networking if not provided
+
+if [ ! -e "/usr/jails/$JAIL_ID/etc/hosts" ]; then
+  cp /etc/hosts "/usr/jails/$JAIL_ID/etc/"
+fi
+
+if [ ! -e "/usr/jails/$JAIL_ID/etc/resolv.conf" ]; then
+  cp /etc/resolv.conf "/usr/jails/$JAIL_ID/etc/"
+fi

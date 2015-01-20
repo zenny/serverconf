@@ -5,11 +5,7 @@
 ## type-specific jail/preinit script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
-# use host's networking
-cp /etc/hosts "/usr/jails/$JAIL_ID/etc/"
-cp /etc/resolv.conf "/usr/jails/$JAIL_ID/etc/"
-
-#set jail to host time
+# set jail to host time
 cp /etc/localtime "/usr/jails/$JAIL_ID/etc/"
 
 # copy to the base jail so we can overwrite with our jail-specific config
