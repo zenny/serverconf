@@ -26,10 +26,9 @@ HOSTNAME="$HOST_NAME"
 if [ -z "$HOST_USER" ]; then HOST_USER="$(who -m | cut -d ' ' -f1)"; fi
 
 #var names in file we'll substitute. must be in these lists.
-jail_varnames='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR'
-host_varnames='HOST_CONF_DIR HOST_NAME HOST HOSTNAME HOST_USER USER'
+host_varnames='HOST_NAME HOST HOSTNAME HOST_USER USER'
 
-REPLACE_VARS="$REPLACE_VARS $jail_varnames $host_varnames"
+REPLACE_VARS="$REPLACE_VARS $host_varnames"
 
 sub_var () {
   local varname="$1" filepath="$2"

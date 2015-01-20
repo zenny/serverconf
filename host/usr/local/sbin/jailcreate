@@ -72,14 +72,15 @@ fi
 
 ## Helper functions
 
-cp_conf_dir () {
-  local srcdir="$1" destdir=$(readlink -f "$2")
-  env JAIL_ID="$JAIL_ID" \
+cp_conf () {
+  local srcpath="$1" destdir="$2"
+  env REPLACE_VARS='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR' \
+      JAIL_ID="$JAIL_ID" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
       JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
-      sh -e "$APP_ROOT/src/copy-conf-dir.sh" "$srcdir" "$destdir"
+      sh -e "$APP_ROOT/src/cp-conf.sh" "$srcpath" "$destdir"
 }
 
 run_host_script () {
@@ -138,10 +139,10 @@ fi
 # Copy jail config to host
 
 if [ -d "$APP_ROOT/jails/default/host" ]; then
-  cp_conf_dir "$APP_ROOT/jails/default/host" /
+  cp_conf "$APP_ROOT/jails/default/host" /
 fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/host" ]; then
-  cp_conf_dir "$APP_ROOT/jails/$JAIL_TYPE/host" /
+  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/host" /
 fi
 
 ## Init
@@ -160,10 +161,10 @@ fi
 # Copy jail config to jail after init has chance to install packages
 
 if [ -d "$APP_ROOT/jails/default/jail" ]; then
-  cp_conf_dir "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
+  cp_conf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
 fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
-  cp_conf_dir "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
+  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
 fi
 
 ## Postinit

@@ -135,18 +135,19 @@ fi
 #turn off swap using current /etc/fstab. will reload later
 swapoff -aL
 
-cp_conf_dir () {
-  local srcdir="$1" destdir=$(readlink -f "$2")
-  env HOST_CONF_DIR="$APP_ROOT/host" \
+cp_conf () {
+  local srcpath="$1" destdir="$2"
+  env REPLACE_VARS='HOST_CONF_DIR MAIL_SERVER MAIL_USER MAIL_PASSWORD' \
+      HOST_CONF_DIR="$APP_ROOT/host" \
       MAIL_SERVER="$MAIL_SERVER" \
       MAIL_USER="$MAIL_USER" \
       MAIL_PASSWORD="$MAIL_PASSWORD" \
-      sh -e "$APP_ROOT/src/copy-conf-dir.sh" "$srcdir" "$destdir"
+      sh -e "$APP_ROOT/src/cp-conf.sh" "$srcpath" "$destdir"
 }
 
-cp_conf_dir "$APP_ROOT/host/etc" /etc
-cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
-cp_conf_dir "$APP_ROOT/host/usr/share/skel" /usr/share/skel
+cp_conf "$APP_ROOT/host/etc" /etc
+cp_conf "$APP_ROOT/host/usr/local/etc" /usr/local/etc
+cp_conf "$APP_ROOT/host/usr/share/skel" /usr/share/skel
 
 #git doesn't keep permissions
 chmod 700 /usr/share/skel/dot.ssh
