@@ -10,7 +10,9 @@ if ! pkg -N  >/dev/null 2>&1; then
 fi
 
 pkg update
-pkg install --yes sudo
+pkg install --yes sudo ca_root_nss
+
+#ln -s /usr/local/share/certs/ca-root-nss.crt /etc/ssl/cert.pem
 
 # set root environment
 

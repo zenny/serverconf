@@ -4,6 +4,3 @@
 ## The default/postinit file is run for all new jails, and before any
 ## type-specific jail/postinit script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
-
-#set jail to host time
-cp /etc/localtime "/usr/jails/$JAIL_ID/etc/"
