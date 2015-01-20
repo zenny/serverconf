@@ -1,3 +1,8 @@
+# Added by host/etc/rc.conf_append ...
+
+#kern_securelevel_enable="YES"   # Enable 'securelevel' kernel security
+#kern_securelevel="1"            # See init(8)
+
 # set up a private network on a cloned loopback device
 cloned_interfaces="${cloned_interfaces} lo1"
 
@@ -7,8 +12,9 @@ ifconfig_lo1_alias0="inet 192.168.0.2 netmask 255.255.255.255"
 ifconfig_lo1_alias1="inet 192.168.0.3 netmask 255.255.255.255"
 ifconfig_lo1_alias2="inet 192.168.0.4 netmask 255.255.255.255"
 
-# ignore jail ips
-syslogd_flags="-ss"
+syslogd_enable="YES"
+syslogd_flags="-ss" # Secure mode. No network sockets
+#syslogd_flags="-a 192.168.0.1"
 
 ezjail_enable="YES"
 
@@ -20,3 +26,11 @@ pf_flags="-F all"
 # network time
 #ntpd_enable="YES"
 #ntpd_sync_on_start="YES"
+
+clear_tmp_enable="YES"  #clear /tmp at startup
+
+# completely disable sendmail (from man rc.sendmail)
+sendmail_enable="NO"
+sendmail_submit_enable="NO"
+sendmail_outbound_enable="NO"
+sendmail_msp_queue_enable="NO"
