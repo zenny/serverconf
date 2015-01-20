@@ -4,30 +4,34 @@
 ## of the already existing destination file.
 ## If the HOST_* and JAIL_* environmental vars are set when this script
 ## is called, perform a substitution in the destination file.
+## Replacement vars in the file must end with a word boundary, ie. they
+## can't be right next to another in a string.
 
 SRCDIR="$1"
 DESTDIR=$(readlink -f "$2")
-
-if [ ! -d "$SRCDIR" -o ! -d "$DESTDIR" ]; then
-  echo "Error: Invalid directory arguments" >&2
-  exit 1
-fi
-
-if [ -n "$JAIL_ID" ]; then
-  SUBSTITUTE_FLAG=1
-fi
-
+#default host vars
 HOST_NAME="$(hostname)"
+HOSTNAME="$HOST_NAME"
 HOST_USER="$(who -m | cut -d ' ' -f1)"
+
+#var names in file we'll substitute. must be in these lists.
+JAIL_VARNAMES='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR'
+HOST_VARNAMES='HOST_CONF_DIR HOST_NAME HOST HOSTNAME HOST_USER USER MAIL_SERVER MAIL_USER MAIL_PASSWORD'
 
 sub_var () {
   local varname="$1" filepath="$2"
 
-  if grep "\$$varname" "$filepath" > /dev/null; then
+  if [ -z "$varname" -o ! -f "$filepath" ]; then
+    echo "sub_var: Invalid parameters: '$varname', '$filepath'" >&2
+    exit 1
+  fi
+
+  if grep "\$$varname\b" "$filepath" > /dev/null; then
     local subtext=$(eval echo "\$$(echo $varname)")
 
     if [ -n "$subtext" ]; then
-      sed -i '' -e "s|\$$varname|$subtext|g" "$filepath"
+      #this works for word boundary on this machine at least '\>'
+      sed -i '' -e "s|\$$varname\>|$subtext|g" "$filepath"
     else
       echo "Attempting to replace empty \$$varname in $filepath, ignoring." >&2
     fi
@@ -39,28 +43,24 @@ sub_var () {
 sub_vars () {
   local filepath="$1"
 
-  # Jail vars
-  sub_var 'JAIL_ID' "$filepath"
-  sub_var 'JAIL_IP' "$filepath"
-  sub_var 'JAIL_TYPE' "$filepath"
-  sub_var 'JAIL_USER' "$filepath"
-  sub_var 'JAIL_CONF_DIR' "$filepath"
-
-  # Host vars
-  sub_var 'HOST_CONF_DIR' "$filepath"
-  sub_var 'HOST_NAME' "$HOST_NAME"
-  sub_var 'HOSTNAME' "$HOST_NAME"
-  sub_var 'HOST_USER' "$HOST_USER"
-  sub_var 'USER' "$HOST_USER"
-  sub_var 'MAIL_SERVER' "$MAIL_SERVER"
-  sub_var 'MAIL_USER' "$MAIL_USER"
-  sub_var 'MAIL_PASSWORD' "$MAIL_PASSWORD"
+  for varname in $(echo "$JAIL_VARNAMES"); do
+    sub_var "$varname" "$filepath"
+  done
+  for varname in $(echo "$HOST_VARNAMES"); do
+    sub_var "$varname" "$filepath"
+  done
 }
+
+# Go! ...
+
+if [ ! -d "$SRCDIR" -o ! -d "$DESTDIR" ]; then
+  echo "Error: Invalid directory arguments" >&2
+  exit 1
+fi
 
 cd "$SRCDIR"
 
 #list all children files in src dir
-
 for fp in $(find . -type f); do
   #get proper file destination path
   fpbasename=$(basename "$fp" | sed 's/_append$//')
@@ -81,7 +81,5 @@ for fp in $(find . -type f); do
     cp "$fp" "$destpath"
   fi
 
-  if [ -n "$SUBSTITUTE_FLAG" ]; then
-    sub_vars "$destpath"
-  fi
+  sub_vars "$destpath"
 done
