@@ -10,8 +10,25 @@
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #add current user to jail by default (even if sudo'd)
 JAIL_USER="$(who -m | cut -d ' ' -f1)"
+#by default use the loopback clone defined in /etc/rc.conf. Avoid reuse between jails.
+JAIL_IP='192.168.0.1'
 
-usagemsg="Usage: $(basename $0) -j jailid -i ipaddr [-t type] [-u user]"
+print_help () {
+  echo "Usage: $(basename $0) [options]" >&2;
+  echo "Options:" >&2;
+  echo " -i=ipaddr  Address to bind jail to [default 127.0.0.1]" >&2;
+  echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
+  echo " -j=id      Id of jail [default is type]" >&2;
+  echo " -u=user    Add user to jail [default is current user]" >&2;
+  echo " -h         Print this help message" >&2;
+}
+
+if [ $(id -u) != 0 ]; then
+  echo "This script must be run as root." 1>&2
+  exit 1
+fi
+
+## Parse options
 
 while getopts "j:i:t:u:" opt; do
   case $opt in
@@ -19,7 +36,8 @@ while getopts "j:i:t:u:" opt; do
     i) JAIL_IP="$OPTARG";;
     t) JAIL_TYPE="$OPTARG";;
     u) JAIL_USER="$OPTARG";;
-    \?) echo "$usagemsg" >&2; exit 1;;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
   esac
 done
 
@@ -30,15 +48,29 @@ if [ ! -d "$APP_ROOT/jails/$JAIL_TYPE" ]; then
   exit 1
 fi
 
-if [ -z "$JAIL_ID" -o -z "$JAIL_TYPE" -o -z "$JAIL_IP" ]; then
-  echo "$usagemsg" >&2
-  exit 1
+if jls -v | grep "$JAIL_IP" > /dev/null; then
+  echo -n "Address $JAIL_IP is already in use, you may have network problems." 1>&2
+  read -p " Continue? (y/n) " reply
+  if [ "$reply" != 'y' -a "$reply" != 'yes' ]; then
+    exit 0
+  fi
 fi
 
-if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
-  exit 1
+#if no id given, use type + jid
+if [ -z "$JAIL_ID" ]; then
+  #get the current jid count
+  idcount=$(jls | tail -1 | awk '{print $1}')
+  if [ $idcount == 'JID' ]; then
+    idcount=0
+  else
+    #jid seems to increment by 2, though I'm not convinced of that
+    #as long as the name is different I guess it doesn't matter.
+    idcount=$((idcount+2))
+  fi
+  JAIL_ID="${JAIL_TYPE}$idcount"
 fi
+
+## Helper functions
 
 cp_conf_dir () {
   local srcdir="$1" destdir=$(readlink -f "$2")
@@ -55,12 +87,14 @@ run_host_script () {
 
   if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
     echo "Running $jailscript for '$jailtype' ..."
-    env JAIL_ID="$JAIL_ID" \
-        JAIL_IP="$JAIL_IP" \
-        JAIL_TYPE="$JAIL_TYPE" \
-        JAIL_USER="$JAIL_USER" \
-        JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
-        sh -e "$APP_ROOT/jails/$jailtype/$jailscript"
+    if ! env JAIL_ID="$JAIL_ID" \
+         JAIL_IP="$JAIL_IP" \
+         JAIL_TYPE="$JAIL_TYPE" \
+         JAIL_USER="$JAIL_USER" \
+         JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
+         sh -e "$APP_ROOT/jails/$jailtype/$jailscript"; then
+      echo "Error running '$jailtype/$jailscript', continuing" >&2
+    fi
   fi
 }
 
@@ -69,17 +103,21 @@ run_jail_script () {
 
   if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
     mkdir -p "/usr/jails/$JAIL_ID/tmp/$jailtype"
-    mount_nullfs "$APP_ROOT/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"
 
-    echo "Running $jailscript for '$jailtype' ..."
-    env JAIL_ID="$JAIL_ID" \
-        JAIL_IP="$JAIL_IP" \
-        JAIL_TYPE="$JAIL_TYPE" \
-        JAIL_USER="$JAIL_USER" \
-        JAIL_CONF_DIR="/tmp/$jailtype" \
-        jexec "$JAIL_ID" sh -e "/tmp/$jailtype/$jailscript"
-
-    umount "/usr/jails/$JAIL_ID/tmp/$jailtype"
+    if ! mount_nullfs "$APP_ROOT/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"; then
+      echo "In '$jailtype/$jailscript', unable to mount $APP_ROOT/jails/$jailtype directory within jail, skipping" >&2
+    else
+      echo "Running $jailscript for '$jailtype' ..."
+      if ! env JAIL_ID="$JAIL_ID" \
+           JAIL_IP="$JAIL_IP" \
+           JAIL_TYPE="$JAIL_TYPE" \
+           JAIL_USER="$JAIL_USER" \
+           JAIL_CONF_DIR="/tmp/$jailtype" \
+           jexec "$JAIL_ID" sh -e "/tmp/$jailtype/$jailscript"; then
+        echo "Error running '$jailtype/$jailscript', continuing" >&2
+      fi
+      umount "/usr/jails/$JAIL_ID/tmp/$jailtype"
+    fi
     rm -rf "/usr/jails/$JAIL_ID/tmp/$jailtype"
   fi
 }
