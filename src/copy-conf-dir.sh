@@ -1,22 +1,35 @@
 #!/bin/sh -e
-## Copies all the children files in a directory to another.
+## Copies a source file or directory to a destination directory.
+## Files in a source directory keep their relative directory path. Empty
+## directories are omitted.
+##
 ## If a file name ends with '_append' it's concatenated to the end
 ## of the already existing destination file.
-## If the HOST_* and JAIL_* environmental vars are set when this script
-## is called, perform a substitution in the destination file.
-## Replacement vars in the file must end with a word boundary, ie. they
-## can't be right next to another in a string.
+##
+## Will replace an allowed set of variables set in the file itself. You
+## can add additional ones by setting the REPLACE_VARS environmental variable.
+##
+## The source file and destination directory *must* exist. Child directories
+## do not as they will get created later.
 
-SRCDIR="$1"
+if [ "$#" -ne 2 ] || [ ! -e "$1" -o ! -d "$2" ]; then
+  echo "Usage: $(basename $0) sourcepath destdir" >&2
+  exit 1
+fi
+
+SRCPATH="$1"
 DESTDIR=$(readlink -f "$2")
-#default host vars
-HOST_NAME="$(hostname)"
+
+# set some default vars and variations
+if [ -z "$HOST_NAME" ]; then HOST_NAME="$(hostname)"; fi
 HOSTNAME="$HOST_NAME"
-HOST_USER="$(who -m | cut -d ' ' -f1)"
+if [ -z "$HOST_USER" ]; then HOST_USER="$(who -m | cut -d ' ' -f1)"; fi
 
 #var names in file we'll substitute. must be in these lists.
-JAIL_VARNAMES='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR'
-HOST_VARNAMES='HOST_CONF_DIR HOST_NAME HOST HOSTNAME HOST_USER USER MAIL_SERVER MAIL_USER MAIL_PASSWORD'
+jail_varnames='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR'
+host_varnames='HOST_CONF_DIR HOST_NAME HOST HOSTNAME HOST_USER USER'
+
+REPLACE_VARS="$REPLACE_VARS $jail_varnames $host_varnames"
 
 sub_var () {
   local varname="$1" filepath="$2"
@@ -42,30 +55,22 @@ sub_var () {
 # when placing them at the destination.
 sub_vars () {
   local filepath="$1"
-
-  for varname in $(echo "$JAIL_VARNAMES"); do
-    sub_var "$varname" "$filepath"
-  done
-  for varname in $(echo "$HOST_VARNAMES"); do
+  for varname in $(echo "$REPLACE_VARS"); do
     sub_var "$varname" "$filepath"
   done
 }
 
-# Go! ...
+copy_conf_file () {
+  local srcpath="$1" destdir="$2"
 
-if [ ! -d "$SRCDIR" -o ! -d "$DESTDIR" ]; then
-  echo "Error: Invalid directory arguments" >&2
-  exit 1
-fi
+  if [ ! -f "$srcpath" -o ! -d "$destdir" ]; then
+    echo "copy_conf: Invalid params: srcpath, destdir" >&2
+    exit 1
+  fi
 
-cd "$SRCDIR"
-
-#list all children files in src dir
-for fp in $(find . -type f); do
   #get proper file destination path
-  fpbasename=$(basename "$fp" | sed 's/_append$//')
-  fpdirname=$(dirname "$fp")
-  destpath="$DESTDIR/$fpdirname/$fpbasename"
+  local fpbasename=$(basename "$srcpath" | sed 's/_append$//')
+  local destpath="$destdir/$fpbasename"
 
   #save backup if destination file already exists
   if [ -e "$destpath" ]; then
@@ -75,11 +80,34 @@ for fp in $(find . -type f); do
   mkdir -p "$(dirname $destpath)"
 
   #append or overwrite
-  if echo "$fp" | grep "_append$" > /dev/null; then
-    cat "$fp" >> "$destpath"
+  if echo "$srcpath" | grep '_append$' > /dev/null; then
+    cat "$srcpath" >> "$destpath"
   else
-    cp "$fp" "$destpath"
+    cp "$srcpath" "$destpath"
   fi
 
+  #replace any of the allowed vars in the destination file
   sub_vars "$destpath"
-done
+}
+
+# Go! ...
+# if given a file, simply copy it over to the destination dir.
+# if given a dir, create the relative dir structure within the dest dir.
+
+if [ -f "$SRCPATH" ]; then
+  copy_conf_file "$SRCPATH" "$DESTDIR"
+
+elif [ -d "$SRCPATH" ]; then
+  #switch to dir for proper rel name
+  cd "$SRCPATH"
+  #list all child files in src dir
+  for fp in $(find . -type f); do
+    #add relative directory to destination
+    reldestdir=$(dirname "$fp")
+    fulldestdir="$DESTDIR/$reldestdir"
+    copy_conf_file "$fp" "$fulldestdir"
+  done
+else
+  echo "Error: Invalid parameter '$SRCPATH', aborting." >&2
+  exit 1
+fi
