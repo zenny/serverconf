@@ -87,7 +87,7 @@ fi
 pkg update
 
 #installs bloated versions, but quick to fetch. should use portmaster
-pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail
+pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail ssmtp
 # pkg install en-freebsd-doc
 
 #install ports tree (source)
@@ -160,6 +160,10 @@ service netif cloneup lo1
 service pf start
 #pfctl -F all -f /etc/pf.conf
 #service ntpd start
+
+#sendmail replaced with outbound-only ssmtp
+service sendmail stop
+killall sendmail
 
 ##
 ## USERS

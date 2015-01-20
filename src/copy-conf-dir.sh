@@ -17,6 +17,9 @@ if [ -n "$JAIL_ID" ]; then
   SUBSTITUTE_FLAG=1
 fi
 
+HOST_NAME="$(hostname)"
+HOST_USER="$(who -m | cut -d ' ' -f1)"
+
 sub_var () {
   local varname="$1" filepath="$2"
 
@@ -45,6 +48,12 @@ sub_vars () {
 
   # Host vars
   sub_var 'HOST_CONF_DIR' "$filepath"
+  sub_var 'HOST_NAME' "$HOST_NAME"
+  sub_var 'HOSTNAME' "$HOST_NAME"
+  sub_var 'HOST_USER' "$HOST_USER"
+  sub_var 'USER' "$HOST_USER"
+	sub_var 'MAIL_USER' "$MAIL_USER"
+	sub_var 'MAIL_PASSWORD' "$MAIL_PASSWORD"
 }
 
 cd "$SRCDIR"
