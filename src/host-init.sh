@@ -138,13 +138,14 @@ swapoff -aL
 cp_conf_dir () {
   local srcdir="$1" destdir=$(readlink -f "$2")
   env HOST_CONF_DIR="$APP_ROOT/host" \
+      MAIL_SERVER="$MAIL_SERVER" \
+      MAIL_USER="$MAIL_USER" \
+      MAIL_PASSWORD="$MAIL_PASSWORD" \
       sh -e "$APP_ROOT/src/copy-conf-dir.sh" "$srcdir" "$destdir"
 }
 
 cp_conf_dir "$APP_ROOT/host/etc" /etc
-#includes sstmp conf
-env MAIL_SERVER="$MAIL_SERVER" MAIL_USER="$MAIL_USER" MAIL_PASSWORD="$MAIL_PASSWORD" \
-    cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
+cp_conf_dir "$APP_ROOT/host/usr/local/etc" /usr/local/etc
 cp_conf_dir "$APP_ROOT/host/usr/share/skel" /usr/share/skel
 
 #git doesn't keep permissions
@@ -175,9 +176,8 @@ service pf start
 #service ntpd start
 
 #sendmail replaced with outbound-only ssmtp
-chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 service sendmail stop
-killall sendmail
+chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 
 ##
 ## USERS

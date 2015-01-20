@@ -12,12 +12,6 @@ ifconfig_lo1_alias0="inet 192.168.0.2 netmask 255.255.255.255"
 ifconfig_lo1_alias1="inet 192.168.0.3 netmask 255.255.255.255"
 ifconfig_lo1_alias2="inet 192.168.0.4 netmask 255.255.255.255"
 
-syslogd_enable="YES"
-syslogd_flags="-ss" # Secure mode. No network sockets
-#syslogd_flags="-a 192.168.0.1"
-
-ezjail_enable="YES"
-
 # packet filtering
 pf_enable="YES"
 pf_rules="/etc/pf.conf"
@@ -27,7 +21,13 @@ pf_flags="-F all"
 #ntpd_enable="YES"
 #ntpd_sync_on_start="YES"
 
+syslogd_enable="YES"
+syslogd_flags="-ss" # Secure mode. No network sockets
+#syslogd_flags="-a 192.168.0.1"
+
+ezjail_enable="YES"
 clear_tmp_enable="YES"  #clear /tmp at startup
+virecover_enable="NO"
 
 # completely disable sendmail (from man rc.sendmail)
 sendmail_enable="NO"
