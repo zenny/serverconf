@@ -16,7 +16,7 @@ JAIL_IP='192.168.0.1'
 print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
-  echo " -i=ipaddr  Address to bind jail to [default 127.0.0.1]" >&2;
+  echo " -i=ipaddr  Address to bind jail to [$JAIL_IP]" >&2;
   echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
   echo " -j=id      Id of jail [default is type]" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
@@ -49,25 +49,24 @@ if [ ! -d "$APP_ROOT/jails/$JAIL_TYPE" ]; then
 fi
 
 if jls -v | grep "$JAIL_IP" > /dev/null; then
-  echo -n "Address $JAIL_IP is already in use, you may have network problems." 1>&2
+  echo -n "Address $JAIL_IP already used, you may experience network problems." 1>&2
   read -p " Continue? (y/n) " reply
   if [ "$reply" != 'y' -a "$reply" != 'yes' ]; then
     exit 0
   fi
 fi
 
-#if no id given, use type + jid
+#if no id given, use typeN
 if [ -z "$JAIL_ID" ]; then
-  #get the current jid count
-  idcount=$(jls | tail -1 | awk '{print $1}')
-  if [ $idcount == 'JID' ]; then
-    idcount=0
+  #get the last jid (jid is incremented on start/restart)
+  jid=$(jls | tail -1 | awk '{print $1}')
+  if [ $jid == 'JID' ]; then
+    jid=0
   else
-    #jid seems to increment by 2, though I'm not convinced of that
-    #as long as the name is different I guess it doesn't matter.
-    idcount=$((idcount+2))
+    #1 plus the last jid at least guarantees a unique name, not descriptive though
+    jid=$((jid+1))
   fi
-  JAIL_ID="${JAIL_TYPE}$idcount"
+  JAIL_ID="${JAIL_TYPE}$jid"
 fi
 
 ## Helper functions
