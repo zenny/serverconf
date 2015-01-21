@@ -15,6 +15,7 @@ print_help () {
   echo " -h           Print this help message" >&2;
   echo " -u=username  User on host system to manage app (sudo privledges)" >&2;
   echo " -p=password  App user password" >&2;
+  echo " -k=pubkey    App user public key" >&2;
   echo " -U=username  Repo user" >&2;
   echo " -P=password  Repo password" >&2;
 }
@@ -47,12 +48,13 @@ fi
 ## PARSE OPTIONS
 ##
 
-while getopts "u:p:U:P:h" opt; do
+while getopts "u:p:U:P:k:h" opt; do
   case $opt in
     u) APP_USER="$OPTARG";;
     p) APP_PASS="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
+    k) USER_PUBKEY="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -177,7 +179,7 @@ service sendmail stop
 
 # permissions
 chmod 700 /usr/share/skel/dot.ssh
-chmod -R 600 /usr/share/skel/dot.ssh
+chmod 600 /usr/share/skel/dot.ssh/authorized_keys
 chmod -R 640 /usr/local/etc/ssmtp
 
 ##
@@ -197,6 +199,13 @@ else
   passwd "$APP_USER"
 fi
 
+#setup ssh keys for login. should disable password login
+if [ -f "$USER_PUBKEY" ]; then
+  cat "$USER_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
+elif [ -n "$USER_PUBKEY" ]; then
+  echo "$USER_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
+fi
+
 #make owner of repo
 chown -R "$APP_USER" "$APP_ROOT"
 
@@ -204,9 +213,9 @@ chown -R "$APP_USER" "$APP_ROOT"
 ezjail-admin install
 
 ##
-## CLEANUP
+## FINISH
 ##
 
-echo "Done. Should probably reboot."
+echo "Finished host setup, the system should probably reboot."
 
 #exec /usr/bin/env ENV="$HOME/.profile" /bin/sh

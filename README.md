@@ -4,23 +4,26 @@ services within.
 
 # Usage
 
+Configure the host system. You'll be prompted for various
+user/passwords at the beginning, but then it can run unattended:
+
 ~~~
 [workstation]~$ ./bin/serverconf user@host
 ~~~
 
-List options:
+Upload your public key for app user login:
+
+~~~
+[workstation]~$ ./bin/serverconf -k ~/.ssh/id_rsa.pub user@host
+~~~
+
+Help:
 
 ~~~
 [workstation]~$ ./bin/serverconf -h
 ~~~
 
-Configure the server with an app jail (see `./jails` for types):
-
-~~~
-[workstation]~$ ./bin/serverconf -j 'db:192.168.0.1:postgresql' user@host
-~~~
-
-If all fails, upload the script to the host system and run with superuser privileges:
+If all fails, upload the init script to the host system and run manually:
 
 ~~~
 [workstation]~$ scp ./src/host-init.sh user@host:~/
@@ -35,11 +38,11 @@ and jail config files are located in their `./jails/{type}` directory.
 
 Files in these directories are copied to their respective systems and
 *overwrite* an existing file unless the file name ends with `_append`.
-In this case, the file is concatenated to the end of the existing
+In that case, the file is concatenated to the end of the existing
 file, so, for example, entries in the file `./host/etc/hosts_append`
 are added to the `/etc/hosts` file.
 
-# Helpful Commands
+# Additional Commands
 
 See `./host/usr/local/bin` and `./host/usr/local/sbin` for some useful commands.
 

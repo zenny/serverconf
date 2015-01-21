@@ -3,18 +3,17 @@
 INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
 
 print_help () {
-  echo "Initialize a newly created FreeBSD server." >&2;
-  echo "Usage: $(basename $0) [options] host" >&2;
-  echo "Options:" >&2;
-  echo " -h          Print this help message" >&2;
-  echo " -u=username  Repo user" >&2;
-  echo " -p=password  Repo password" >&2;
+  echo "Initialize a newly created FreeBSD remote server." >&2;
+  echo "Usage: $(basename $0) [-U=repoUser] [-P=repoPass] [-k=pubkey] host" >&2;
 }
 
-while getopts "u:p:h" opt; do
+HOST_INIT_ARGS=''
+
+while getopts "U:P:k:h" opt; do
   case $opt in
-    u) REPO_USER="$OPTARG";;
-    p) REPO_PASS="$OPTARG";;
+    U) REPO_USER="$OPTARG";;
+    P) REPO_PASS="$OPTARG";;
+    k) PUBKEY="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -40,6 +39,14 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
+#convert ssh pub key to string to pass on to server
+if [ -f "$PUBKEY" ]; then
+  PUBKEY="$(printf %s $(cat $PUBKEY))"
+fi
+if [ -n "$PUBKEY" ]; then
+  HOST_INIT_ARGS="$HOST_INIT_ARGS -k $PUBKEY"
+fi
+
 ## Set up commands to run on remote server.
 ## Root shell defaults to csh.
 
@@ -54,7 +61,7 @@ get_file="fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o $init_file $repo
 
 check_file="if (! -e $init_file) echo \"Unable to run install script, aborting.\""
 
-run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS"
+run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS $HOST_INIT_ARGS"
 
 del_file="if (-e $init_file) rm $init_file"
 
