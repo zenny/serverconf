@@ -54,7 +54,7 @@ while getopts "u:p:U:P:k:h" opt; do
     p) APP_PASS="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
-    k) USER_PUBKEY="$OPTARG";;
+    k) USER_PUBKEY="$(echo $OPTARG)";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
