@@ -182,6 +182,9 @@ chmod 700 /usr/share/skel/dot.ssh
 chmod 600 /usr/share/skel/dot.ssh/authorized_keys
 chmod -R 640 /usr/local/etc/ssmtp
 
+#installs the basejail (use -sp for sources and ports)
+ezjail-admin install
+
 ##
 ## USERS
 ##
@@ -199,23 +202,28 @@ else
   passwd "$APP_USER"
 fi
 
-#setup ssh keys for login. should disable password login
-if [ -f "$USER_PUBKEY" ]; then
-  cat "$USER_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
-elif [ -n "$USER_PUBKEY" ]; then
-  echo "$USER_PUBKEY" >> "/home/$APP_USER/.ssh/authorized_keys"
-fi
-
 #make owner of repo
 chown -R "$APP_USER" "$APP_ROOT"
 
-#installs the basejail (use -sp for sources and ports)
-ezjail-admin install
+#setup ssh keys for login. should disable password-based auth
+if [ -n "$USER_PUBKEY" ]; then
+  pubkey_file=$(mktemp)
+  if [ -f "$USER_PUBKEY" ]; then
+    cat "$USER_PUBKEY" > "$pubkey_file"
+  else
+    echo "$USER_PUBKEY" > "$pubkey_file"
+  fi
+  #check fingerprint to make sure it's a valid key
+  if ssh-keygen -l -f "$pubkey_file" > /dev/null; then
+    cat "$pubkey_file" >> "/home/$APP_USER/.ssh/authorized_keys"
+  else
+    echo "Invalid public key, not adding." >&2;
+  fi
+  rm "$pubkey_file"
+fi
 
 ##
 ## FINISH
 ##
 
 echo "Finished host setup, the system should probably reboot."
-
-#exec /usr/bin/env ENV="$HOME/.profile" /bin/sh
