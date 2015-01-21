@@ -40,7 +40,7 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
-#convert ssh pub key to string to pass on to server
+#convert local ssh pub key file to string to pass as host-init parameter
 if [ -f "$PUBKEY" ]; then
   PUBKEY="$(cat $PUBKEY)"
 fi
@@ -59,7 +59,7 @@ get_file="fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o $init_file $repo
 
 check_file="if (! -e $init_file) echo \"Unable to run install script, aborting.\""
 
-run_file="if (-e $init_file) sh -e -x $init_file -U $REPO_USER -P $REPO_PASS -k '$PUBKEY'"
+run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS -k \"$PUBKEY\""
 
 del_file="if (-e $init_file) rm $init_file"
 

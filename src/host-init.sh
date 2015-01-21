@@ -54,14 +54,11 @@ while getopts "u:p:U:P:k:h" opt; do
     p) APP_PASS="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
-    k) USER_PUBKEY="$(echo $OPTARG)";;
+    k) USER_PUBKEY="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
 done
-
-echo "key:$USER_PUBKEY"
-echo "args:$@"
 
 if [ -z "$APP_USER" ]; then
   read -p "Enter the app user: " APP_USER
