@@ -136,8 +136,9 @@ fi
 swapoff -aL
 
 cp_conf () {
-  local srcpath="$1" destdir="$2"
-  env REPLACE_VARS='HOST_CONF_DIR MAIL_SERVER MAIL_USER MAIL_PASSWORD' \
+  local srcpath="$1" destdir="$2" replacevars="$3" ignorevars="$4"
+  env REPLACE_VARS="$replacevars HOST_CONF_DIR MAIL_SERVER MAIL_USER MAIL_PASSWORD" \
+      NO_REPLACE_VARS="$ignorevars" \
       HOST_CONF_DIR="$APP_ROOT/host" \
       MAIL_SERVER="$MAIL_SERVER" \
       MAIL_USER="$MAIL_USER" \
@@ -147,8 +148,7 @@ cp_conf () {
 
 cp_conf "$APP_ROOT/host/etc" /etc
 cp_conf "$APP_ROOT/host/usr/local/etc" /usr/local/etc
-env NO_REPLACE_VARS='HOSTNAME HOST USER' \
-    cp_conf "$APP_ROOT/host/usr/share/skel" /usr/share/skel
+cp_conf "$APP_ROOT/host/usr/share/skel" /usr/share/skel '' 'HOSTNAME HOST USER'
 
 #git doesn't keep permissions
 chmod 700 /usr/share/skel/dot.ssh

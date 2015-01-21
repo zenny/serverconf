@@ -72,8 +72,9 @@ fi
 ## Helper functions
 
 cp_conf () {
-  local srcpath="$1" destdir="$2"
-  env REPLACE_VARS='JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR' \
+  local srcpath="$1" destdir="$2" replacevars="$3" ignorevars="$4"
+  env REPLACE_VARS="$replacevars JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR" \
+      NO_REPLACE_VARS="$ignorevars" \
       JAIL_ID="$JAIL_ID" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
