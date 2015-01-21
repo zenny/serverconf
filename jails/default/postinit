@@ -1,16 +1,6 @@
 #!/bin/sh
-## Used by jail-create, this script is run on the host system after the
-## jail has been created and started. Ran after jail/init.
+## Used by jailcreate, this script is run on the host system after the
+## jail has been created and started. It's run after {jailtype}/init.
 ## The default/postinit file is run for all new jails, and before any
-## type-specific jail/postinit script is run.
+## type-specific {jailtype}/init script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
-
-# use host networking if not provided
-
-if [ ! -e "/usr/jails/$JAIL_ID/etc/hosts" ]; then
-  cp /etc/hosts "/usr/jails/$JAIL_ID/etc/"
-fi
-
-if [ ! -e "/usr/jails/$JAIL_ID/etc/resolv.conf" ]; then
-  cp /etc/resolv.conf "/usr/jails/$JAIL_ID/etc/"
-fi

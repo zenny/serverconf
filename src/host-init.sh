@@ -177,8 +177,8 @@ service pf start
 #service ntpd start
 
 #sendmail replaced with outbound-only ssmtp
+#permissions should be set as chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 service sendmail stop
-chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 
 ##
 ## USERS

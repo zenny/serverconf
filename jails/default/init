@@ -1,8 +1,8 @@
 #!/bin/sh
-## Used by jail-create, this script is run within the jail after it
-## has been started. Run after jail.preinit and before jail.postinit.
-## The default/jail.init is run for all new jails, and before any
-## type-specific jail.init script is run.
+## Used by jailcreate, this script is run within the jail after it
+## has been created started. It's run after jailtype/init and before
+## {jailtype}/postinit. The script default/init is run for all new jails,
+## and before any type-specific {jailtype}/init script is run.
 ## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 if ! pkg -N  >/dev/null 2>&1; then
