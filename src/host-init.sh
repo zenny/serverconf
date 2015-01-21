@@ -147,7 +147,8 @@ cp_conf () {
 
 cp_conf "$APP_ROOT/host/etc" /etc
 cp_conf "$APP_ROOT/host/usr/local/etc" /usr/local/etc
-cp_conf "$APP_ROOT/host/usr/share/skel" /usr/share/skel
+env NO_REPLACE_VARS='HOSTNAME HOST USER' \
+    cp_conf "$APP_ROOT/host/usr/share/skel" /usr/share/skel
 
 #git doesn't keep permissions
 chmod 700 /usr/share/skel/dot.ssh
@@ -177,8 +178,8 @@ service pf start
 #service ntpd start
 
 #sendmail replaced with outbound-only ssmtp
-#permissions should be set as chmod 640 /usr/local/etc/ssmtp/ssmtp.conf
 service sendmail stop
+chmod -R 640 /usr/local/etc/ssmtp
 
 ##
 ## USERS

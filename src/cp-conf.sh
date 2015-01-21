@@ -29,6 +29,8 @@ if [ -z "$HOST_USER" ]; then HOST_USER="$(who -m | cut -d ' ' -f1)"; fi
 host_varnames='HOST_NAME HOST HOSTNAME HOST_USER USER'
 
 REPLACE_VARS="$REPLACE_VARS $host_varnames"
+if [ -z "$NO_REPLACE_VARS" ]; then NO_REPLACE_VARS=''; fi
+
 
 sub_var () {
   local varname="$1" filepath="$2"
@@ -55,7 +57,9 @@ sub_var () {
 sub_vars () {
   local filepath="$1"
   for varname in $(echo "$REPLACE_VARS"); do
-    sub_var "$varname" "$filepath"
+    if ! echo -n "$NO_REPLACE_VARS" | grep "\b$varname\b" > /dev/null; then
+      sub_var "$varname" "$filepath"
+    fi
   done
 }
 
