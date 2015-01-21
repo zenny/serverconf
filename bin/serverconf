@@ -4,7 +4,10 @@ INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
 
 print_help () {
   echo "Initialize a newly created FreeBSD remote server." >&2;
-  echo "Usage: $(basename $0) [-U=repoUser] [-P=repoPass] [-k=pubkey] host" >&2;
+  echo "Usage: $(basename $0) [options] host" >&2;
+  echo " -k=pubkey    Public key for host's app user" >&2;
+  echo " -U=username  Repo user (https://bitbucket.org/hazelnut/serverconf)" >&2;
+  echo " -P=password  Repo user password" >&2;
 }
 
 HOST_INIT_ARGS=''
