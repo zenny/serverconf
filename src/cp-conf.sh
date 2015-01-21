@@ -62,14 +62,14 @@ sub_vars () {
 copy_conf_file () {
   local srcpath="$1" destdir="$2"
 
-  if [ ! -f "$srcpath" -o ! -d "$destdir" ]; then
-    echo "copy_conf: Invalid params: srcpath, destdir" >&2
+  if [ ! -f "$srcpath" -o -z "$destdir" ]; then
+    echo "copy_conf_file: Invalid params: srcpath=$srcpath, destdir=$destdir" >&2
     exit 1
   fi
 
   #get proper file destination path
-  local fpbasename=$(basename "$srcpath" | sed 's/_append$//')
-  local destpath="$destdir/$fpbasename"
+  local srcbasename=$(basename "$srcpath" | sed 's/_append$//')
+  local destpath="$destdir/$srcbasename"
 
   #save backup if destination file already exists
   if [ -e "$destpath" ]; then
