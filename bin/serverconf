@@ -7,19 +7,14 @@ print_help () {
   echo "Usage: $(basename $0) [options] host" >&2;
   echo "Options:" >&2;
   echo " -h          Print this help message" >&2;
-  echo " -j=jail(s)  List of jail types to install on the host" >&2;
-  echo "             e.g. 'default:192.168.0.1,postgresql:192.168.0.2'" >&2;
-  echo " -U=username  Repo user" >&2;
-  echo " -P=password  Repo password" >&2;
+  echo " -u=username  Repo user" >&2;
+  echo " -p=password  Repo password" >&2;
 }
 
-INSTALL_ARGS=''
-
-while getopts "j:U:P:h" opt; do
+while getopts "u:p:h" opt; do
   case $opt in
-    j) INSTALL_ARGS="-j $OPTARG $INSTALL_ARGS";;
-    U) REPO_USER="$OPTARG";;
-    P) REPO_PASS="$OPTARG";;
+    u) REPO_USER="$OPTARG";;
+    p) REPO_PASS="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -59,7 +54,7 @@ get_file="fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o $init_file $repo
 
 check_file="if (! -e $init_file) echo \"Unable to run install script, aborting.\""
 
-run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS $INSTALL_ARGS"
+run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS"
 
 del_file="if (-e $init_file) rm $init_file"
 
