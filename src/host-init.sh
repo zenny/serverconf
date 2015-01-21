@@ -60,6 +60,9 @@ while getopts "u:p:U:P:k:h" opt; do
   esac
 done
 
+echo "key:$USER_PUBKEY"
+echo "args:$@"
+
 if [ -z "$APP_USER" ]; then
   read -p "Enter the app user: " APP_USER
   if [ -z "$APP_USER" ]; then

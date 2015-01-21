@@ -10,8 +10,6 @@ print_help () {
   echo " -P=password  Repo user password" >&2;
 }
 
-HOST_INIT_ARGS=''
-
 while getopts "U:P:k:h" opt; do
   case $opt in
     U) REPO_USER="$OPTARG";;
@@ -44,10 +42,7 @@ fi
 
 #convert ssh pub key to string to pass on to server
 if [ -f "$PUBKEY" ]; then
-  PUBKEY="$(printf %s $(cat $PUBKEY))"
-fi
-if [ -n "$PUBKEY" ]; then
-  HOST_INIT_ARGS="$HOST_INIT_ARGS -k $PUBKEY"
+  PUBKEY="$(cat $PUBKEY)"
 fi
 
 ## Set up commands to run on remote server.
@@ -64,7 +59,7 @@ get_file="fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o $init_file $repo
 
 check_file="if (! -e $init_file) echo \"Unable to run install script, aborting.\""
 
-run_file="if (-e $init_file) sh -e $init_file -U $REPO_USER -P $REPO_PASS $HOST_INIT_ARGS"
+run_file="if (-e $init_file) sh -e -x $init_file -U $REPO_USER -P $REPO_PASS -k '$PUBKEY'"
 
 del_file="if (-e $init_file) rm $init_file"
 
