@@ -2,6 +2,7 @@
 
 INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
 INIT_ARGS=''
+APP_ROOT="$(cd $(dirname $(dirname $0)) && pwd -P)"
 
 print_help () {
   echo "Initialize a newly created FreeBSD remote server." >&2;
@@ -11,10 +12,11 @@ print_help () {
   echo " -P=password  Repo user password" >&2;
 }
 
+
 while getopts "U:P:k:h" opt; do
   case $opt in
-    U) REPO_USER="$OPTARG"; INIT_ARGS="$INIT_ARGS -U '$OPTARG'";;
-    P) REPO_PASS="$OPTARG"; INIT_ARGS="$INIT_ARGS -U '$OPTARG'";;
+    U) REPO_USER="$OPTARG"; INIT_ARGS="$INIT_ARGS -U \"$OPTARG\"";;
+    P) REPO_PASS="$OPTARG"; INIT_ARGS="$INIT_ARGS -U \"$OPTARG\"";;
     k) PUBKEY="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
@@ -29,69 +31,96 @@ if [ -z "$HOST_NAME" ]; then
   exit 1
 fi
 
-#convert local ssh pub key file to string to pass as host-init parameter
-if [ -f "$PUBKEY" ]; then PUBKEY="$(cat $PUBKEY)"; fi
-if [ -n "$PUBKEY" ]; then INIT_ARGS="$INIT_ARGS -k '$PUBKEY'"; fi
 
 
-# Need the repo info here so we can download from the auth url
-repo_host=$(echo "$INIT_URL" | awk -F/ '{print $3}')
+##
+## Bootstrap
+##
 
-if [ -z "$REPO_USER" ]; then
-  read -p "'$repo_host' username: " REPO_USER
-  INIT_ARGS="$INIT_ARGS -U '$REPO_USER'"
-fi
-
-if [ -z "$REPO_PASS" ]; then
-  stty -echo
-  read -p "'$repo_host' password: " REPO_PASS; echo
-  stty echo
-  INIT_ARGS="$INIT_ARGS -P '$REPO_PASS'"
-fi
-
-repo_auth_url="https://$REPO_USER:$REPO_PASS@${INIT_URL#*//}"
-
-
-# Run as $USER
-syscheck_script="sh -e -c '
-
-if [ \$(uname -s) != '\"FreeBSD\"' ]; then
-  echo '\"This script can only configure a FreeBSD server.\"';
+bootstrap_src='
+echo "--->$INIT_FILE $INIT_URL"
+if [ $(uname -s) != "FreeBSD" ]; then
+  echo "This script can only configure a FreeBSD server."
   exit 1;
 fi
 
-if [ \$(id -u) != 0 ];
-  then echo -n \"Must run as superuser. \";
-fi
-'"
-
-#pseudo-distinct filename to store the downloaded bootstrap script
-init_file="/tmp/$(basename $INIT_URL).$(date +%s)"
-
-# Run as root
-# This kind of escaping is painful and error prone, do as little as possible.
-# Do not create vars in here, just access external ones on the first substition.
-# To quote strings use: '\"my string\"'
-init_script="su - root -f -c 'sh -e -c \"
-
-if ! fetch -q --no-verify-peer --user-agent '\"Wget/1.16\"' -o $init_file '\"$repo_auth_url\"'; then
-  echo '\"Error downloading $init_file, exiting.\"';
+if ! fetch -q --no-verify-peer --user-agent "Wget/1.16" -o "$INIT_FILE" "$INIT_URL"; then
+  echo "Error downloading $INIT_FILE, exiting.";
   exit 1;
 
 else
-  if [ -e $init_file ]; then
-    sh -e $init_file '\"$INIT_ARGS\"';
+  if [ -e $INIT_FILE ]; then
+    if [ $(id -u) != 0 ]; then
+      echo -n "Must run as superuser. "
+    fi
+    su - root -f -c "sh -e $INIT_FILE \"$INIT_ARGS\""
   else
-    echo Unable to find init script, exiting.;
+    echo "Unable to find init script, exiting.";
     exit 1;
   fi
-fi
-\" ' "
+fi'
 
+su_prompt='if [ `id -u` != 0 ]; then echo -n "Must run as superuser. "; fi'
 
-# Run local or remote
+##
+## Run locally. Don't need the entire repo, this script will bootstrap.
+##
+
 if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" == '::1' ]; then
-  sh -e -c "$syscheck_script; $init_script;"
-else
-  ssh -X -t -t "$HOST_NAME" "$syscheck_script; $init_script;"
+
+	if [ $(uname -s) != "FreeBSD" ]; then
+		echo "This script can only configure a FreeBSD server."  >&2
+		exit 1;
+	fi
+
+	init_file=$(mktemp -t $(basename "$INIT_URL"))
+	bootstrap_file=$(mktemp -t $(basename "$init_file-bootstrap"))
+	echo "$bootstrap_src" > "$bootstrap_file"
+
+	sh -e -c "$su_prompt"
+	su - root -c "env INIT_FILE='$init_file' INIT_URL='$init_url' sh -e $bootstrap_file"
+	rm "$bootstrap_file" "$init_file"
+	exit 0
 fi
+
+##
+## Run remote.
+##
+
+#if we already have a pubkey connection then skip adding it
+if ! ssh -q -o 'BatchMode=yes' "$HOST_NAME" true; then
+
+	#convert local ssh pub key file to string to pass as host-init parameter
+	if [ ! -f "$PUBKEY" ]; then
+		pubkeystr="$PUBKEY"
+		PUBKEY=$(mktemp -t 'pubkey')
+		echo "$pubkeystr" > "$PUBKEY"
+	fi
+
+	#check fingerprint to make sure it's a valid key
+	if ! ssh-keygen -l -f "$PUBKEY" > /dev/null; then
+		echo "Invalid public key, not adding, and exiting." >&2;
+		exit 1
+	else
+		pubkeystr=$(cat "$PUBKEY")
+		keyfile='~/.ssh/authorized_keys'
+		echo "Adding pubkey to authorized key"
+		if ! ssh "$HOST_NAME" "mkdir -p -m 700 ~/.ssh; echo $pubkeystr >> $keyfile; chmod 600 $keyfile;" >/dev/null 2>&1; then
+			echo "Unable to add key, exiting."
+			exit 1
+		fi
+	fi
+fi
+
+
+init_file="$(ssh -q $HOST_NAME mktemp -t $(basename $INIT_URL))"
+bootstrap_file="$(ssh -q $HOST_NAME mktemp -t $(basename $init_file-bootstrap))"
+
+bootstrap_file_local=$(mktemp -t $(basename "$bootstrap_file"))
+echo "$bootstrap_src" > "$bootstrap_file_local"
+
+scp -q "$bootstrap_file_local" "$HOST_NAME:$bootstrap_file"
+
+ssh -t "$HOST_NAME" "sh -e -c '$su_prompt'; su - root -c 'env INIT_FILE=\"$init_file\" INIT_URL=\"$init_url\" sh -e $bootstrap_file'; rm $bootstrap_file $init_file;"
+
+rm "$bootstrap_file_local"
