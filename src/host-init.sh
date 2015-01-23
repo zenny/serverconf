@@ -258,4 +258,7 @@ if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
   echo "Removed key from $(hostname):/root/.ssh/authorized_keys"
 fi
 
-echo "Finished host setup, the system should probably reboot."
+read -p "Finished host setup, do you want to reboot? (y/n) " reboot_flag
+if [ "$reboot_flag" == 'y' -o "$reboot_flag" == 'yes' ]; then
+  shutdown -r now
+fi
