@@ -15,7 +15,6 @@ print_help () {
   echo " -h           Print this help message" >&2;
   echo " -u=username  User on host system to manage app (sudo privledges)" >&2;
   echo " -p=password  App user password" >&2;
-  echo " -k=pubkey    App user public key" >&2;
   echo " -U=username  Repo user" >&2;
   echo " -P=password  Repo password" >&2;
 }
@@ -48,13 +47,12 @@ fi
 ## PARSE OPTIONS
 ##
 
-while getopts "u:p:U:P:k:h" opt; do
+while getopts "u:p:U:P:h" opt; do
   case $opt in
     u) APP_USER="$OPTARG";;
     p) APP_PASS="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
-    k) USER_PUBKEY="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -204,23 +202,6 @@ fi
 
 #make owner of repo
 chown -R "$APP_USER" "$APP_ROOT"
-
-#setup ssh keys for login. should disable password-based auth
-if [ -n "$USER_PUBKEY" ]; then
-  pubkey_file=$(mktemp)
-  if [ -f "$USER_PUBKEY" ]; then
-    cat "$USER_PUBKEY" > "$pubkey_file"
-  else
-    echo "$USER_PUBKEY" > "$pubkey_file"
-  fi
-  #check fingerprint to make sure it's a valid key
-  if ssh-keygen -l -f "$pubkey_file" > /dev/null; then
-    cat "$pubkey_file" >> "/home/$APP_USER/.ssh/authorized_keys"
-  else
-    echo "Invalid public key, not adding." >&2;
-  fi
-  rm "$pubkey_file"
-fi
 
 ##
 ## FINISH
