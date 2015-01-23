@@ -8,6 +8,7 @@ HOST_INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-ini
 REPO_HOST=$(echo "$HOST_INIT_URL" | awk -F/ '{print $3}')
 INIT_ARGS=''
 PUBKEY_DEFAULT='~/.ssh/id_rsa.pub'
+ENV_OPTS="MAIL_SERVER=\"$MAIL_SERVER\" MAIL_USER=\"$MAIL_USER\" MAIL_PASSWORD=\"$MAIL_PASSWORD\""
 
 print_help () {
   echo "Configure a FreeBSD server, my way." >&2;
@@ -117,7 +118,7 @@ if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" 
         PUBKEY=$(getkeystr "$PUBKEY")
         INIT_ARGS="$INIT_ARGS -k \"$PUBKEY\""
       fi
-      exec su - root -f -c "sh -e $init_file $INIT_ARGS"
+      exec su - root -f -c "env $ENV_OPTS sh -e $init_file $INIT_ARGS"
     fi
   fi
   exit 0
@@ -152,4 +153,4 @@ fi
 
 remote_script="$(ssh -q $HOST_NAME mktemp -t $(basename $0))"
 scp -q "$0" "$HOST_NAME:$remote_script"
-ssh -t "$HOST_NAME" "sh -e $remote_script $INIT_ARGS localhost"
+ssh -t "$HOST_NAME" "env $ENV_OPTS sh -e $remote_script $INIT_ARGS localhost"
