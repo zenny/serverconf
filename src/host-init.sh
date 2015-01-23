@@ -79,6 +79,11 @@ if [ -z "$ADMIN_USER" -o "$ADMIN_USER" == 'root' ]; then
   fi
   read -p "$prompt_user" ADMIN_USER
   if [ -z "$ADMIN_USER" ]; then ADMIN_USER="$(id -un)"; fi
+
+  if [ "$ADMIN_USER" == 'root' ]; then
+    echo "$(basename $0): Unable to add 'root' as an admin user, aborting." >&2
+    exit 1
+  fi
 fi
 
 #prompt for password if not given and the user doesn't already exist
@@ -201,13 +206,16 @@ pw groupadd jailed #access to jexec
 if id "$ADMIN_USER" >/dev/null 2>&1; then
   #admin user alreay exists. assumed in wheel group if running this script
   pw usermod "$ADMIN_USER" -G jailed
-else
+elif [ -n "$ADMIN_USER" ]; then
   #admin user doesn't exist, create
   if [ -n "$ADMIN_PASS" ]; then
     echo "$ADMIN_PASS" | pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
   else
     pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash
   fi
+else
+  echo "$(basename $0): Unable to add an admin user, aborting." >&2;
+  exit 1
 fi
 
 #make owner of this app
