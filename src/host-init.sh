@@ -1,10 +1,10 @@
 #!/bin/sh -e
 
 #no command-line options for these, use env to set:
-SWAP_FILE_SIZE=1024 #1g
-MAIL_SERVER="smtp.gmail.com:587" #outgoing only
-MAIL_USER=''
-MAIL_PASSWORD=''
+if [ -z "$SWAP_FILE_SIZE" ]; then SWAP_FILE_SIZE=1024; fi #1gig
+if [ -z "$MAIL_SERVER" ]; then MAIL_SERVER='smtp.gmail.com:587'; fi #outgoing only
+if [ -z "$MAIL_USER" ]; then MAIL_USER=''; fi
+if [ -z "$MAIL_PASSWORD" ]; then MAIL_PASSWORD=''; fi
 
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 REPO_HOST=$(echo "$REPO_URL" | awk -F/ '{print $3}')
