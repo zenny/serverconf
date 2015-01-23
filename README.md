@@ -4,32 +4,46 @@ services within.
 
 # Usage
 
-Configure the host system. You'll be prompted for various
-user/passwords at the beginning, but then it can run unattended:
+~~~
+[workstation]~$ ./bin/serverconf -h
+~~~
+
+To configure the host FreeBSD system, simply pass the remote account
+to log in with. This account needs to run the script with superuser
+privledges, so make sure it's a member of the *wheel* group. The
+script will prompt you for various user/passwords at the beginning but
+can then be run unattended:
 
 ~~~
 [workstation]~$ ./bin/serverconf user@host
 ~~~
 
-Upload your public key for app user login:
+You'll be prompted for a ssh public key to configure your server for
+password-less logins. If you need to generate a new key pair run:
 
 ~~~
+[workstation]~$ ssh-keygen -b 4096 -C "billy@example.com"
+...
 [workstation]~$ ./bin/serverconf -k ~/.ssh/id_rsa.pub user@host
 ~~~
 
-Help:
+This key will also be used for the additional admin user you create.
+If you configure the server using the root account, that account won't
+save the key.
+
+If you've logged into the remote host already, you can download the
+install script directly and then run it on localhost:
 
 ~~~
-[workstation]~$ ./bin/serverconf -h
+[host]~$ fetch --no-verify-peer --user-agent 'Wget/1.16' https://bitbucket.org/hazelnut/serverconf/raw/master/bin/serverconf
+...
+[host]~$ sh -e ./serverconf localhost
 ~~~
 
-If all fails, upload the init script to the host system and run manually:
-
-~~~
-[workstation]~$ scp ./src/host-init.sh user@host:~/
-[workstation]~$ ssh user@host
-[host]~$ su - root -c "./host-init.sh"
-~~~
+On a fresh FreeBSD system use the `fetch` command to download files.
+The `--no-verify-peer` argument skips over SSL verification since
+those libraries haven't been installed yet. We need to spoof our
+user-agent because of a bug in BitBucket.
 
 # Config Files
 

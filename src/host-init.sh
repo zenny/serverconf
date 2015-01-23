@@ -1,24 +1,22 @@
 #!/bin/sh -e
-## Run on the host machine to install packages and configure the server.
 
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
+REPO_HOST=$(echo "$REPO_URL" | awk -F/ '{print $3}')
 APP_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
 SWAP_FILE_SIZE=1024 #1g
 MAIL_SERVER="smtp.gmail.com:587"
 MAIL_USER="serverconfstatus@gmail.com"
 MAIL_PASSWORD=''
 
-repo_host=$(echo "$REPO_URL" | awk -F/ '{print $3}')
-
 print_help () {
-  echo "Configure the FreeBSD app server. Run on the host system." >&2;
+  echo "The main server configuration script. Run on the host system." >&2;
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
   echo " -h           Print this help message" >&2;
   echo " -u=username  Admin user (required, will prompt if not provided)" >&2;
   echo " -p=password  Admin user password" >&2;
   echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
-  echo " -U=username  App repo login ($repo_host)" >&2;
+  echo " -U=username  App repo login ($REPO_HOST)" >&2;
   echo " -P=password  App repo password" >&2;
 }
 
@@ -36,12 +34,12 @@ cp_conf () {
 ## Sanity checks
 
 if [ $(uname -s) != "FreeBSD" ]; then
-  echo "This script must be run on FreeBSD." 1>&2
+  echo "$(basename $0): This script must be run on FreeBSD." 1>&2
   exit 1
 fi
 
 if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
+  echo "$(basename $0): This script must be run as root." 1>&2
   echo "If a member of the 'wheel' group, try: su - root -c \"sh -e $0\"" 1>&2
   exit 1
 fi
@@ -50,10 +48,11 @@ fi
 ## PARSE OPTIONS
 ##
 
-while getopts "u:p:U:P:h" opt; do
+while getopts "u:p:k:U:P:h" opt; do
   case $opt in
     u) ADMIN_USER="$OPTARG";;
     p) ADMIN_PASS="$OPTARG";;
+    k) PUBKEY="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
     h) print_help; exit 0;;
@@ -64,7 +63,7 @@ done
 if [ -z "$ADMIN_USER" ]; then
   read -p "Add admin user: " ADMIN_USER
   if [ -z "$ADMIN_USER" ]; then
-    echo "Requires a user, aborting." 1>&2
+    echo "$(basename $0): Requires a user, aborting." 1>&2
     exit 1
   fi
 fi
@@ -74,18 +73,18 @@ if [ -z "$ADMIN_PASS" ]; then
   read -p "'$ADMIN_USER' password: " ADMIN_PASS; echo
   stty echo
   if [ -z "$ADMIN_PASS" ]; then
-    echo "Invalid password, aborting." 1>&2
+    echo "$(basename $0): Invalid password, aborting." 1>&2
     exit 1
   fi
 fi
 
 if [ -z "$REPO_USER" ]; then
-  read -p "'$repo_host' username: " REPO_USER
+  read -p "'$REPO_HOST' username: " REPO_USER
 fi
 
 if [ -z "$REPO_PASS" ]; then
   stty -echo
-  read -p "'$repo_host' password: " REPO_PASS; echo
+  read -p "'$REPO_HOST' password: " REPO_PASS; echo
   stty echo
 fi
 
@@ -135,7 +134,7 @@ repo_auth_url="https://$REPO_USER:$REPO_PASS@${REPO_URL#*//}"
 mkdir -p "$APP_ROOT"
 
 if ! git clone "$repo_auth_url" "$APP_ROOT"; then
-  echo "Unable to download repo, aborting." 1>&2
+  echo "$(basename $0): Unable to download repo, aborting." 1>&2
   exit 1
 fi
 
@@ -205,14 +204,14 @@ fi
 
 # if given a key param, let the admin use it
 if [ -f "$PUBKEY" ]; then
-  echo "Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
+  echo "$(basename $0): Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
 
 elif [ -n "$PUBKEY" ]; then
   keyfile=$(mktemp -t 'pubkey')
   echo "$PUBKEY" > "$keyfile"
   #check if valid key file
   if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
-    echo "Invalid key, not adding for $ADMIN_USER" >&2;
+    echo "$(basename $0): Invalid key, not adding for $ADMIN_USER" >&2;
   else
     keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
     if cat "$keyfile" >> "$keyringfile"; then
@@ -226,7 +225,13 @@ fi
 chown -R "$ADMIN_USER" "$APP_ROOT"
 
 ##
-## FINISH
+## CLEANUP
 ##
+
+#remove the root key if we're root
+if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
+  rm -rf '/root/.ssh/authorized_keys'
+  echo "Removed key to $HOST_NAME:/root/.ssh/authorized_keys"
+fi
 
 echo "Finished host setup, the system should probably reboot."
