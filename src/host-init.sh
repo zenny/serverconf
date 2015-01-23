@@ -13,7 +13,7 @@ print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
   echo " -h           Print this help message" >&2;
-  echo " -u=username  Admin user" >&2;
+  echo " -u=username  Admin user (required, will prompt)" >&2;
   echo " -p=password  Admin user password" >&2;
   echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
   echo " -U=username  App repo login ($REPO_HOST)" >&2;
@@ -70,26 +70,24 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
-if [ -z "$ADMIN_USER" ]; then
-  read -p "Create an admin user? (y/n) " ADMIN_USER_FLAG
-  if [ "$ADMIN_USER_FLAG" == 'y' -o "$ADMIN_USER_FLAG" == 'yes' ]; then
-    ADMIN_USER_FLAG=1
-    read -p "User name: " ADMIN_USER
-    if [ -z "$ADMIN_USER" ]; then
-      echo "Invalid user name, skipping."
-      ADMIN_USER_FLAG=''
-    fi
+#prompt for admin user. can be new user or this user, but not root.
+if [ -z "$ADMIN_USER" -o "$ADMIN_USER" == 'root' ]; then
+  if [ $(id -u) == 0 ]; then
+    prompt_user="Add admin user: "
   else
-    ADMIN_USER_FLAG=''
+    prompt_user="Add admin user [$(id -un)]: "
   fi
+  read -p "$prompt_user" ADMIN_USER
+  if [ -z "$ADMIN_USER" ]; then ADMIN_USER="$(id -un)"; fi
 fi
 
-if [ -n "$ADMIN_USER_FLAG" -a -z "$ADMIN_PASS" ]; then
+#prompt for password if not given and the user doesn't already exist
+if [ -z "$ADMIN_PASS" ] && ! id "$ADMIN_USER" >/dev/null 2>&1; then
   stty -echo
   read -p "'$ADMIN_USER' password: " ADMIN_PASS; echo
   stty echo
   if [ -z "$ADMIN_PASS" ]; then
-    echo "Ok, not adding a password"
+    echo "No password used"
   fi
 fi
 
@@ -200,34 +198,40 @@ pw groupadd jailed #access to jexec
 
 # admin user
 
-if [ -n "$ADMIN_USER_FLAG" ]; then
+if id "$ADMIN_USER" >/dev/null 2>&1; then
+  #admin user alreay exists. assumed in wheel group if running this script
+  pw usermod "$ADMIN_USER" -G jailed
+else
+  #admin user doesn't exist, create
   if [ -n "$ADMIN_PASS" ]; then
     echo "$ADMIN_PASS" | pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
   else
     pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash
   fi
+fi
 
-  #make owner of this app
-  chown -R "$ADMIN_USER" "$APP_ROOT"
+#make owner of this app
+chown -R "$ADMIN_USER" "$APP_ROOT"
 
-  # if given a key param, let the admin use it
-  if [ -f "$PUBKEY" ]; then
-    echo "$(basename $0): Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
+# if given a key param, let the admin use it
 
-  elif [ -n "$PUBKEY" ]; then
-    keyfile=$(mktemp -t 'pubkey')
-    echo "$PUBKEY" > "$keyfile"
-    #check if valid key file
-    if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
-      echo "$(basename $0): Invalid key, not adding for $ADMIN_USER" >&2;
-    else
-      keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
-      if cat "$keyfile" >> "$keyringfile"; then
-        echo "Added key to $(hostname):$keyringfile"
-      fi
+if [ -f "$PUBKEY" ]; then
+  echo "$(basename $0): Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
+
+elif [ -n "$PUBKEY" -a "$ADMIN_USER" != "$(id -un)" ]; then
+  #this account should already have the key installed
+  keyfiletmp=$(mktemp -t 'pubkey')
+  echo "$PUBKEY" > "$keyfiletmp"
+  #check if valid key file
+  if ! ssh-keygen -l -f "$keyfiletmp" > /dev/null; then
+    echo "$(basename $0): Invalid key, not adding for $ADMIN_USER" >&2;
+  else
+    keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
+    if cat "$keyfiletmp" >> "$keyringfile"; then
+      echo "Added key to $(hostname):$keyringfile"
     fi
-    rm "$keyfile"
   fi
+  rm "$keyfiletmp"
 fi
 
 ##
