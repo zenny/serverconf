@@ -1,12 +1,14 @@
 #!/bin/sh -e
 
+#no command-line options for these, use env to set:
+SWAP_FILE_SIZE=1024 #1g
+MAIL_SERVER="smtp.gmail.com:587" #outgoing only
+MAIL_USER=''
+MAIL_PASSWORD=''
+
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 REPO_HOST=$(echo "$REPO_URL" | awk -F/ '{print $3}')
 APP_ROOT="/usr/local/opt/$(basename $REPO_URL '.git')"
-SWAP_FILE_SIZE=1024 #1g
-MAIL_SERVER="smtp.gmail.com:587"
-MAIL_USER="serverconfstatus@gmail.com"
-MAIL_PASSWORD=''
 
 print_help () {
   echo "The main server configuration script. Run on the host system." >&2;
@@ -73,7 +75,7 @@ fi
 #prompt for admin user. can be new user or this user, but not root.
 if [ -z "$ADMIN_USER" -o "$ADMIN_USER" == 'root' ]; then
   if [ $(id -u) == 0 ]; then
-    prompt_user="Add admin user: "
+    prompt_user="Add admin user (required): "
   else
     prompt_user="Add admin user [$(id -un)]: "
   fi
@@ -81,7 +83,7 @@ if [ -z "$ADMIN_USER" -o "$ADMIN_USER" == 'root' ]; then
   if [ -z "$ADMIN_USER" ]; then ADMIN_USER="$(id -un)"; fi
 
   if [ "$ADMIN_USER" == 'root' ]; then
-    echo "$(basename $0): Unable to add 'root' as an admin user, aborting." >&2
+    echo "$(basename $0): An admin user other than 'root' is required, exiting." >&2
     exit 1
   fi
 fi
@@ -96,9 +98,13 @@ if [ -z "$ADMIN_PASS" ] && ! id "$ADMIN_USER" >/dev/null 2>&1; then
   fi
 fi
 
-#outgoing mail only. no command-line options, use env
-if [ -n "$MAIL_USER" -a -z "$MAIL_PASSWORD" ]; then
+#outgoing mail only. no command-line option, use env
+if [ -z "$MAIL_USER" ]; then
   echo "Configuring mail for '$MAIL_SERVER' (outgoing only)"
+  read -p "Enter email address: " MAIL_USER
+fi
+
+if [ -n "$MAIL_USER" -a -z "$MAIL_PASSWORD" ]; then
   stty -echo
   read -p "'$MAIL_USER' password: " MAIL_PASSWORD; echo
   stty echo
