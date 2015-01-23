@@ -59,7 +59,7 @@ init_url_auth="https://$REPO_USER:$REPO_PASS@${HOST_INIT_URL#*//}"
 # prompt for a key file path.
 getkeystr () {
   local keyarg="$1" keyfile keystr
-  echo "got key: \"$keyarg\"" >&2;
+
   #if string or file name, store in a file to check fingerprint
   if [ -n "$keyarg" -a ! -f "$keyarg" ]; then
     #if given key string, make it a temp file

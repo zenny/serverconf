@@ -13,7 +13,7 @@ print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
   echo " -h           Print this help message" >&2;
-  echo " -u=username  Admin user (required, will prompt if not provided)" >&2;
+  echo " -u=username  Admin user" >&2;
   echo " -p=password  Admin user password" >&2;
   echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
   echo " -U=username  App repo login ($REPO_HOST)" >&2;
@@ -60,24 +60,6 @@ while getopts "u:p:k:U:P:h" opt; do
   esac
 done
 
-if [ -z "$ADMIN_USER" ]; then
-  read -p "Add admin user: " ADMIN_USER
-  if [ -z "$ADMIN_USER" ]; then
-    echo "$(basename $0): Requires a user, aborting." 1>&2
-    exit 1
-  fi
-fi
-
-if [ -z "$ADMIN_PASS" ]; then
-  stty -echo
-  read -p "'$ADMIN_USER' password: " ADMIN_PASS; echo
-  stty echo
-  if [ -z "$ADMIN_PASS" ]; then
-    echo "$(basename $0): Invalid password, aborting." 1>&2
-    exit 1
-  fi
-fi
-
 if [ -z "$REPO_USER" ]; then
   read -p "'$REPO_HOST' username: " REPO_USER
 fi
@@ -86,6 +68,29 @@ if [ -z "$REPO_PASS" ]; then
   stty -echo
   read -p "'$REPO_HOST' password: " REPO_PASS; echo
   stty echo
+fi
+
+if [ -z "$ADMIN_USER" ]; then
+  read -p "Create an admin user? (y/n) " ADMIN_USER_FLAG
+  if [ "$ADMIN_USER_FLAG" == 'y' -o "$ADMIN_USER_FLAG" == 'yes' ]; then
+    ADMIN_USER_FLAG=1
+    read -p "User name: " ADMIN_USER
+    if [ -z "$ADMIN_USER" ]; then
+      echo "Invalid user name, skipping."
+      ADMIN_USER_FLAG=''
+    fi
+  else
+    ADMIN_USER_FLAG=''
+  fi
+fi
+
+if [ -n "$ADMIN_USER_FLAG" -a -z "$ADMIN_PASS" ]; then
+  stty -echo
+  read -p "'$ADMIN_USER' password: " ADMIN_PASS; echo
+  stty echo
+  if [ -z "$ADMIN_PASS" ]; then
+    echo "Ok, not adding a password"
+  fi
 fi
 
 #outgoing mail only. no command-line options, use env
@@ -195,34 +200,35 @@ pw groupadd jailed #access to jexec
 
 # admin user
 
-if [ -n "$ADMIN_PASS" ]; then
-  echo "$ADMIN_PASS" | pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
-else
-  pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash
-  passwd "$ADMIN_USER"
-fi
-
-# if given a key param, let the admin use it
-if [ -f "$PUBKEY" ]; then
-  echo "$(basename $0): Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
-
-elif [ -n "$PUBKEY" ]; then
-  keyfile=$(mktemp -t 'pubkey')
-  echo "$PUBKEY" > "$keyfile"
-  #check if valid key file
-  if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
-    echo "$(basename $0): Invalid key, not adding for $ADMIN_USER" >&2;
+if [ -n "$ADMIN_USER_FLAG" ]; then
+  if [ -n "$ADMIN_PASS" ]; then
+    echo "$ADMIN_PASS" | pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
   else
-    keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
-    if cat "$keyfile" >> "$keyringfile"; then
-      echo "Added key to $(hostname):$keyringfile"
-    fi
+    pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash
   fi
-  rm "$keyfile"
-fi
 
-#make owner of this app
-chown -R "$ADMIN_USER" "$APP_ROOT"
+  #make owner of this app
+  chown -R "$ADMIN_USER" "$APP_ROOT"
+
+  # if given a key param, let the admin use it
+  if [ -f "$PUBKEY" ]; then
+    echo "$(basename $0): Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
+
+  elif [ -n "$PUBKEY" ]; then
+    keyfile=$(mktemp -t 'pubkey')
+    echo "$PUBKEY" > "$keyfile"
+    #check if valid key file
+    if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
+      echo "$(basename $0): Invalid key, not adding for $ADMIN_USER" >&2;
+    else
+      keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
+      if cat "$keyfile" >> "$keyringfile"; then
+        echo "Added key to $(hostname):$keyringfile"
+      fi
+    fi
+    rm "$keyfile"
+  fi
+fi
 
 ##
 ## CLEANUP
@@ -231,7 +237,7 @@ chown -R "$ADMIN_USER" "$APP_ROOT"
 #remove the root key if we're root
 if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
   rm -rf '/root/.ssh/authorized_keys'
-  echo "Removed key to $HOST_NAME:/root/.ssh/authorized_keys"
+  echo "Removed key from $(hostname):/root/.ssh/authorized_keys"
 fi
 
 echo "Finished host setup, the system should probably reboot."
