@@ -8,15 +8,18 @@ MAIL_SERVER="smtp.gmail.com:587"
 MAIL_USER="serverconfstatus@gmail.com"
 MAIL_PASSWORD=''
 
+repo_host=$(echo "$REPO_URL" | awk -F/ '{print $3}')
+
 print_help () {
   echo "Configure the FreeBSD app server. Run on the host system." >&2;
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
   echo " -h           Print this help message" >&2;
-  echo " -u=username  User on host system to manage app (sudo privledges)" >&2;
-  echo " -p=password  App user password" >&2;
-  echo " -U=username  Repo user" >&2;
-  echo " -P=password  Repo password" >&2;
+  echo " -u=username  Admin user (required, will prompt if not provided)" >&2;
+  echo " -p=password  Admin user password" >&2;
+  echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
+  echo " -U=username  App repo login ($repo_host)" >&2;
+  echo " -P=password  App repo password" >&2;
 }
 
 cp_conf () {
@@ -49,8 +52,8 @@ fi
 
 while getopts "u:p:U:P:h" opt; do
   case $opt in
-    u) APP_USER="$OPTARG";;
-    p) APP_PASS="$OPTARG";;
+    u) ADMIN_USER="$OPTARG";;
+    p) ADMIN_PASS="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
     h) print_help; exit 0;;
@@ -58,25 +61,23 @@ while getopts "u:p:U:P:h" opt; do
   esac
 done
 
-if [ -z "$APP_USER" ]; then
-  read -p "Enter the app user: " APP_USER
-  if [ -z "$APP_USER" ]; then
+if [ -z "$ADMIN_USER" ]; then
+  read -p "Add admin user: " ADMIN_USER
+  if [ -z "$ADMIN_USER" ]; then
     echo "Requires a user, aborting." 1>&2
     exit 1
   fi
 fi
 
-if [ -z "$APP_PASS" ]; then
+if [ -z "$ADMIN_PASS" ]; then
   stty -echo
-  read -p "Password for app user '$APP_USER': " APP_PASS; echo
+  read -p "'$ADMIN_USER' password: " ADMIN_PASS; echo
   stty echo
-  if [ -z "$APP_PASS" ]; then
+  if [ -z "$ADMIN_PASS" ]; then
     echo "Invalid password, aborting." 1>&2
     exit 1
   fi
 fi
-
-repo_host=$(echo "$REPO_URL" | awk -F/ '{print $3}')
 
 if [ -z "$REPO_USER" ]; then
   read -p "'$repo_host' username: " REPO_USER
@@ -193,15 +194,36 @@ cp /usr/share/skel/dot.profile "$HOME/.profile" #use updated version
 
 pw groupadd jailed #access to jexec
 
-if [ -n "$APP_PASS" ]; then
-  echo "$APP_PASS" | pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
+# admin user
+
+if [ -n "$ADMIN_PASS" ]; then
+  echo "$ADMIN_PASS" | pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash -h 0
 else
-  pw useradd -n "$APP_USER" -m -G wheel,jailed -s /usr/local/bin/bash
-  passwd "$APP_USER"
+  pw useradd -n "$ADMIN_USER" -m -G wheel,jailed -s /usr/local/bin/bash
+  passwd "$ADMIN_USER"
 fi
 
-#make owner of repo
-chown -R "$APP_USER" "$APP_ROOT"
+# if given a key param, let the admin use it
+if [ -f "$PUBKEY" ]; then
+  echo "Pubkey param '$PUBKEY' is a file. That's confusing so not adding for $ADMIN_USER" >&2;
+
+elif [ -n "$PUBKEY" ]; then
+  keyfile=$(mktemp -t 'pubkey')
+  echo "$PUBKEY" > "$keyfile"
+  #check if valid key file
+  if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
+    echo "Invalid key, not adding for $ADMIN_USER" >&2;
+  else
+    keyringfile="/home/$ADMIN_USER/.ssh/authorized_keys"
+    if cat "$keyfile" >> "$keyringfile"; then
+      echo "Added key to $(hostname):$keyringfile"
+    fi
+  fi
+  rm "$keyfile"
+fi
+
+#make owner of this app
+chown -R "$ADMIN_USER" "$APP_ROOT"
 
 ##
 ## FINISH

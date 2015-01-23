@@ -1,14 +1,17 @@
 #!/bin/sh -e
 
 INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
+INIT_ARGS=''
 PUBKEY_DEFAULT='~/.ssh/id_rsa.pub'
+
+repo_host=$(echo "$INIT_URL" | awk -F/ '{print $3}')
 
 print_help () {
   echo "Initialize a newly created FreeBSD remote server." >&2;
   echo "Usage: $(basename $0) [options] host" >&2;
   echo " -k=pubkey    Public key for remote setup [$PUBKEY_DEFAULT]" >&2;
-  echo " -U=username  Repo user (https://bitbucket.org/hazelnut/serverconf)" >&2;
-  echo " -P=password  Repo user password" >&2;
+  echo " -U=username  App repo login ($repo_host)" >&2;
+  echo " -P=password  App repo password" >&2;
 }
 
 while getopts "U:P:k:h" opt; do
@@ -29,8 +32,6 @@ if [ -z "$HOST_NAME" ]; then
   exit 1
 fi
 
-repo_host=$(echo "$INIT_URL" | awk -F/ '{print $3}')
-
 if [ -z "$REPO_USER" ]; then
   echo "Need to download setup:"
   read -p "'$repo_host' username: " REPO_USER
@@ -42,8 +43,42 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
-init_url="https://$REPO_USER:$REPO_PASS@${INIT_URL#*//}"
-init_args="$init_args -U \"$REPO_USER\" -P \"$REPO_PASS\""
+INIT_ARGS="$INIT_ARGS -U \"$REPO_USER\" -P \"$REPO_PASS\""
+init_url_auth="https://$REPO_USER:$REPO_PASS@${INIT_URL#*//}"
+
+# Given a file path or string for a public key, return the key string.
+getkeystr () {
+  local keyarg="$1" keyfile keystr
+
+  #if string or file name, store in a file to check fingerprint
+  if [ -n "$keyarg" -a ! -f "$keyarg" ]; then
+    #if given key string, make it a temp file
+    keyfile=$(mktemp -t 'pubkey')
+    echo "$keyarg" > "$keyfile"
+
+  elif [ -z "$keyarg" ]; then
+    #if no key, prompt
+    read -p "Use public ssh key [$PUBKEY_DEFAULT]: " keyarg
+    if [ -z "$keyarg" ]; then keyarg="$PUBKEY_DEFAULT"; fi
+    keyfile=$(eval echo "$keyarg") #expand tilde
+
+    if [ ! -f "$keyfile" ]; then
+      echo "Invalid file: $keyfile, exiting." >&2;
+      exit 1
+    fi
+  fi
+
+  #check fingerprint to make sure it's a valid key
+  if ! ssh-keygen -l -f "$keyfile" > /dev/null; then
+    echo "Invalid key, exiting and not adding." >&2;
+    exit 1
+  else
+    keystr=$(cat "$keyfile")
+  fi
+
+  rm "$keyfile"
+  echo "$keystr"
+}
 
 ##
 ## If run locally, download the host-init script and run as root.
@@ -58,7 +93,7 @@ if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" 
 
   init_file=$(mktemp -t $(basename "$INIT_URL"))
 
-  if ! fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o "$init_file" "$init_url"; then
+  if ! fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o "$init_file" "$init_url_auth"; then
     echo "Error downloading $init_file, exiting.";
     exit 1;
   else
@@ -66,8 +101,11 @@ if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" 
       if [ $(id -u) != 0 ]; then
         echo -n "Must run as superuser. "
       fi
-      #su_prompt='if [ `id -u` != 0 ]; then echo -n "Must run as superuser. "; fi'
-      su - root -f -c "sh -e $init_file $init_args"
+      if [ -n "$PUBKEY" ]; then
+        PUBKEY="$(getkeystr $PUBKEY)"
+        INIT_ARGS="$INIT_ARGS -k \"$PUBKEY\""
+      fi
+      su - root -f -c "sh -e $init_file $INIT_ARGS"
     else
       echo "Unable to find init script, exiting.";
       exit 1;
@@ -88,48 +126,31 @@ fi
 ## Running remotely. Configure ssh key auth, if needed.
 ##
 
+#if auth isn't currently enabled, upload key to host
 if ! ssh -q -o 'BatchMode=yes' "$HOST_NAME" true; then
 
-  if [ -n "$PUBKEY" -a ! -f "$PUBKEY" ]; then
-    #if given key string, make it a temp file
-    pubkeystr="$PUBKEY"
-    PUBKEY=$(mktemp -t 'pubkey')
-    echo "$pubkeystr" > "$PUBKEY"
+  keystr=$(getkeystr "$PUBKEY")
+  keyringfile='~/.ssh/authorized_keys'
 
-  elif [ -z "$PUBKEY" ]; then
-    #if no key, prompt
-    read -p "Use public ssh key [$PUBKEY_DEFAULT]: " PUBKEY
-    if [ -z "$PUBKEY" ]; then PUBKEY="$PUBKEY_DEFAULT"; fi
-    PUBKEY=$(eval echo "$PUBKEY") #expand tilde
-
-    if [ ! -f "$PUBKEY" ]; then
-      echo "Invalid file: $PUBKEY, exiting." >&2;
-      exit 1
-    fi
+  if [ ! -n "$keystr" ]; then
+    echo "Requires a valid public key to set up $HOST_NAME, exiting." >&2;
+    exit 1
   fi
 
-  #check fingerprint to make sure it's a valid key
-  if ! ssh-keygen -l -f "$PUBKEY" > /dev/null; then
-    echo "Invalid key, exiting and not adding." >&2;
+  if ! ssh "$HOST_NAME" "mkdir -p -m 700 ~/.ssh; echo $keystr >> $keyringfile; chmod 600 $keyringfile;" >/dev/null 2>&1; then
+    echo "Unable to add key to $HOST_NAME:$keyringfile, exiting." >&2;
     exit 1
   else
-    #log in to remote and add to authorized keys
-    pubkeystr=$(cat "$PUBKEY")
-    keyfile='~/.ssh/authorized_keys'
-
-    if ! ssh "$HOST_NAME" "mkdir -p -m 700 ~/.ssh; echo $pubkeystr >> $keyfile; chmod 600 $keyfile;" >/dev/null 2>&1; then
-      echo "Unable to add key to $HOST_NAME:$keyfile, exiting." >&2;
-      exit 1
-    else
-      echo "Added key to $HOST_NAME:$keyfile"
-    fi
+    echo "Added key to $HOST_NAME:$keyringfile"
   fi
+
+  INIT_ARGS="$INIT_ARGS -k \"$keystr\""
 fi
 
 ##
 ## Auth ready. Upload this script and run locally.
 ##
 
-remote_init="$(ssh -q $HOST_NAME mktemp -t $(basename $0))"
-scp -q "$0" "$HOST_NAME:$remote_init"
-ssh -t "$HOST_NAME" "sh -e $remote_init $init_args localhost"
+remote_script="$(ssh -q $HOST_NAME mktemp -t $(basename $0))"
+scp -q "$0" "$HOST_NAME:$remote_script"
+ssh -t "$HOST_NAME" "sh -e $remote_script $INIT_ARGS localhost"
