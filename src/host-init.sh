@@ -258,7 +258,10 @@ if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
   echo "Removed key from $(hostname):/root/.ssh/authorized_keys"
 fi
 
-read -p "Finished host setup, do you want to reboot? (y/n) " reboot_flag
-if [ "$reboot_flag" == 'y' -o "$reboot_flag" == 'yes' ]; then
+#ask to reboot system. default is yes and will timeout after 30 sec.
+read -t 30 -p "Finished host setup, reboot? [y] " reboot_flag
+
+if [ -z "$reboot_flag" -o "$reboot_flag" == 'y' -o "$reboot_flag" == 'yes' ]; then
+  #even though it's shutting down now, it appears this script finishes
   shutdown -r now
 fi
