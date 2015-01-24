@@ -10,13 +10,11 @@
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #add current user to jail by default (even if sudo'd)
 JAIL_USER="$(who -m | cut -d ' ' -f1)"
-#by default use the loopback clone defined in /etc/rc.conf. Avoid reuse between jails.
-JAIL_IP='192.168.0.1'
 
 print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
-  echo " -i=ipaddr  Address to bind jail to [$JAIL_IP]" >&2;
+  echo " -i=ipaddr  Address to bind jail" >&2;
   echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
   echo " -j=id      Id of jail [default is type]" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
@@ -40,6 +38,8 @@ while getopts "j:i:t:u:" opt; do
     \?) print_help; exit 1;;
   esac
 done
+
+if [ -z "$JAIL_IP" ]; then print_help; exit 1; fi
 
 if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
 
@@ -84,12 +84,12 @@ cp_conf () {
 }
 
 jail_hook () {
-  local jailtype="$1" hookname="$2" hookenv="$3"
+  local hookname="$1" hookenv="$2"
   env JAIL_ID="$JAIL_ID" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
-      sh -e "$APP_ROOT/src/jail-hook.sh" "$jailtype" "$hookname" "$hookenv"
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
 }
 
 
@@ -100,7 +100,7 @@ ezjail-admin create "$JAIL_ID" "$JAIL_IP"
 ## Preinit
 ## Modify config dir before copying into jail.
 
-jail_hook "$JAIL_TYPE" 'preinit' 'host'
+jail_hook 'preinit' 'host'
 
 # Copy jail config to host
 
@@ -118,7 +118,7 @@ echo "Initializing jail ..."
 
 ezjail-admin start "$JAIL_ID"
 
-jail_hook "$JAIL_TYPE" 'init' 'jail'
+jail_hook 'init' 'jail'
 
 # Copy jail config to jail after init has chance to install packages
 
@@ -131,7 +131,7 @@ fi
 
 ## Postinit
 
-jail_hook "$JAIL_TYPE" 'postinit' 'host'
+jail_hook 'postinit' 'host'
 
 ezjail-admin restart "$JAIL_ID"
 
