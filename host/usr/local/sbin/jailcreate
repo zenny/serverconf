@@ -83,45 +83,15 @@ cp_conf () {
       sh -e "$APP_ROOT/src/cp-conf.sh" "$srcpath" "$destdir"
 }
 
-run_host_script () {
-  local jailtype="$1" jailscript="$2"
-
-  if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
-    echo "Running $jailscript for '$jailtype' ..."
-    if ! env JAIL_ID="$JAIL_ID" \
-         JAIL_IP="$JAIL_IP" \
-         JAIL_TYPE="$JAIL_TYPE" \
-         JAIL_USER="$JAIL_USER" \
-         JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
-         sh -e "$APP_ROOT/jails/$jailtype/$jailscript"; then
-      echo "Error running '$jailtype/$jailscript', continuing" >&2
-    fi
-  fi
+jail_hook () {
+  local jailtype="$1" hookname="$2" hookenv="$3"
+  env JAIL_ID="$JAIL_ID" \
+      JAIL_IP="$JAIL_IP" \
+      JAIL_TYPE="$JAIL_TYPE" \
+      JAIL_USER="$JAIL_USER" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$jailtype" "$hookname" "$hookenv"
 }
 
-run_jail_script () {
-  local jailtype="$1" jailscript="$2"
-
-  if [ -f "$APP_ROOT/jails/$jailtype/$jailscript" ]; then
-    mkdir -p "/usr/jails/$JAIL_ID/tmp/$jailtype"
-
-    if ! mount_nullfs "$APP_ROOT/jails/$jailtype" "/usr/jails/$JAIL_ID/tmp/$jailtype"; then
-      echo "In '$jailtype/$jailscript', unable to mount $APP_ROOT/jails/$jailtype directory within jail, skipping" >&2
-    else
-      echo "Running $jailscript for '$jailtype' ..."
-      if ! env JAIL_ID="$JAIL_ID" \
-           JAIL_IP="$JAIL_IP" \
-           JAIL_TYPE="$JAIL_TYPE" \
-           JAIL_USER="$JAIL_USER" \
-           JAIL_CONF_DIR="/tmp/$jailtype" \
-           jexec "$JAIL_ID" sh -e "/tmp/$jailtype/$jailscript"; then
-        echo "Error running '$jailtype/$jailscript', continuing" >&2
-      fi
-      umount "/usr/jails/$JAIL_ID/tmp/$jailtype"
-    fi
-    rm -rf "/usr/jails/$JAIL_ID/tmp/$jailtype"
-  fi
-}
 
 ## Create
 
@@ -130,11 +100,7 @@ ezjail-admin create "$JAIL_ID" "$JAIL_IP"
 ## Preinit
 ## Modify config dir before copying into jail.
 
-run_host_script "default" "preinit"
-
-if [ "$JAIL_TYPE" != "default" ]; then
-  run_host_script "$JAIL_TYPE" "preinit"
-fi
+jail_hook "$JAIL_TYPE" 'preinit' 'host'
 
 # Copy jail config to host
 
@@ -152,11 +118,7 @@ echo "Initializing jail ..."
 
 ezjail-admin start "$JAIL_ID"
 
-run_jail_script "default" "init"
-
-if [ "$JAIL_TYPE" != "default" ]; then
-  run_jail_script "$JAIL_TYPE" "init"
-fi
+jail_hook "$JAIL_TYPE" 'init' 'jail'
 
 # Copy jail config to jail after init has chance to install packages
 
@@ -169,11 +131,7 @@ fi
 
 ## Postinit
 
-run_host_script "default" "postinit"
-
-if [ "$JAIL_TYPE" != "default" ]; then
-  run_host_script "$JAIL_TYPE" "postinit"
-fi
+jail_hook "$JAIL_TYPE" 'postinit' 'host'
 
 ezjail-admin restart "$JAIL_ID"
 
