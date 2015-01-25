@@ -1,12 +1,10 @@
 #!/bin/sh -e
 ## Create an empty jail and set its environment.
-##
-## The jail's ezjail.flavour script is automatically run within the
-## jail when it is first started.
-## This script checks for the jail-create.preinit and jail-create.postinit
-## files located in the flavor directory. These are run from the host.
+## This script looks for the file hooks: preinit, init, and postinit,located within
+## the jail type directory.
+## Preinit and postinit are run on the host system, init is run within the jail itself.
 
-#shoud be something like /usr/local/opt/kola
+#shoud be something like /usr/local/opt/serverconf
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #add current user to jail by default (even if sudo'd)
 JAIL_USER="$(who -m | cut -d ' ' -f1)"
@@ -14,9 +12,9 @@ JAIL_USER="$(who -m | cut -d ' ' -f1)"
 print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
+  echo " -j=id      Id of jail" >&2;
   echo " -i=ipaddr  Address to bind jail" >&2;
   echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
-  echo " -j=id      Id of jail [default is type]" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
   echo " -h         Print this help message" >&2;
 }
@@ -28,7 +26,7 @@ fi
 
 ## Parse options
 
-while getopts "j:i:t:u:" opt; do
+while getopts "j:i:t:u:h" opt; do
   case $opt in
     j) JAIL_ID="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
@@ -97,6 +95,16 @@ jail_hook () {
 
 ezjail-admin create "$JAIL_ID" "$JAIL_IP"
 
+# add config vars that can be reached within the jail
+jailconf="/usr/jails/$JAIL_ID/etc/serverconf"
+
+if [ ! -f "$jailconf" ]; then touch "$jailconf"; fi
+
+if ! sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype" -v "$JAIL_TYPE"; then
+  echo "$(basename $0): Error setting jail config file, exiting." >&2
+  exit 1
+fi
+
 ## Preinit
 ## Modify config dir before copying into jail.
 
@@ -132,6 +140,8 @@ fi
 ## Postinit
 
 jail_hook 'postinit' 'host'
+
+echo "Restarting jail ..."
 
 ezjail-admin restart "$JAIL_ID"
 

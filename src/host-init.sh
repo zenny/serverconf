@@ -123,7 +123,7 @@ fi
 pkg update
 
 #installs bloated versions, but quick to fetch. should use portmaster
-pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail ssmtp
+pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail ssmtp rsync
 # pkg install en-freebsd-doc
 
 #install ports tree (source)

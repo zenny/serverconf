@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 print_help () {
   echo "Usage: $(basename $0) -f=filename -k=key [-v=value]" >&2;
