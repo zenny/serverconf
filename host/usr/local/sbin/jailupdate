@@ -3,7 +3,9 @@
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 
 print_help () {
-  echo "Usage: $(basename $0) jailname" >&2;
+  echo "Usage: $(basename $0) [options] [jailname]" >&2;
+	echo "Options:" >&2;
+	echo " -A  Update all jails" >&2;
 }
 
 if [ $(id -u) != 0 ]; then
@@ -12,6 +14,14 @@ if [ $(id -u) != 0 ]; then
 fi
 
 ## Parse args and get jail environmental vars
+
+while getopts "Ah" opt; do
+  case $opt in
+    A) UPDATE_ALL_FLAG=1;;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
+done
 
 for lastarg; do true; done
 JAIL_ID="$lastarg"

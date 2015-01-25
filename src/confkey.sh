@@ -31,7 +31,7 @@ fi
 
 CONFDATA=$(cat "$CONFFILE")
 # match last record in file and get line number
-linematch=$(echo "$CONFDATA" | grep -n "\b$CONFKEY\b[[:space:]]*=" | tail -n1)
+linematch=$(echo "$CONFDATA" | grep -n "^[[:space:]]*\b$CONFKEY\b[[:space:]]*=" | tail -n1)
 
 ##
 ## SETTER

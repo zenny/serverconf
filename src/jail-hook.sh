@@ -1,6 +1,7 @@
 #!/bin/sh -e
 ## Run the command hook files for jailcreate and jailupdate.
-## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER
+## See jailcreate/jailupdate for passed environmental vars.
+## Some include: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, APP_ROOT, EZJAIL_CONF
 
 HOOK_NAME="${1%.*}" #remove file extension if given
 HOOK_ENV="$2"
@@ -61,10 +62,6 @@ HOOK_FILE=$(find "$JAIL_CONF_DIR" -name "$HOOK_NAME*" -type f -maxdepth 1 | head
 if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'host' ]; then
   echo "Running '$HOOK_NAME' hook for '$JAIL_TYPE' on $HOOK_ENV ..."
   if ! env \
-       JAIL_ID="$JAIL_ID" \
-       JAIL_IP="$JAIL_IP" \
-       JAIL_USER="$JAIL_USER" \
-       JAIL_TYPE="$JAIL_TYPE" \
        HOOK_NAME="$HOOK_NAME" \
        HOOK_ENV="$HOOK_ENV" \
        JAIL_CONF_DIR="$JAIL_CONF_DIR" \
@@ -87,10 +84,6 @@ if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'jail' ]; then
   else
     echo "Running '$HOOK_NAME' hook for '$JAIL_TYPE' in $HOOK_ENV ..."
     if ! env \
-         JAIL_ID="$JAIL_ID" \
-         JAIL_IP="$JAIL_IP" \
-         JAIL_USER="$JAIL_USER" \
-         JAIL_TYPE="$JAIL_TYPE" \
          HOOK_NAME="$HOOK_NAME" \
          HOOK_ENV="$HOOK_ENV" \
          JAIL_CONF_DIR="/tmp/$JAIL_TYPE" \

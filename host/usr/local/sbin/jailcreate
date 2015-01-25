@@ -87,6 +87,8 @@ jail_hook () {
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
+      APP_ROOT="$APP_ROOT" \
+      EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_ID" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
 }
 
