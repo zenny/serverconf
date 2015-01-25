@@ -8,11 +8,6 @@ print_help () {
 	echo " -A  Update all jails" >&2;
 }
 
-if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
-  exit 1
-fi
-
 ## Parse args and get jail environmental vars
 
 while getopts "Ah" opt; do
@@ -23,12 +18,17 @@ while getopts "Ah" opt; do
   esac
 done
 
+if [ $(id -u) != 0 ]; then
+  echo "This script must be run as root." 1>&2
+  exit 1
+fi
+
 for lastarg; do true; done
-JAIL_ID="$lastarg"
+JAIL_NAME="$lastarg"
 
-if [ -z "$JAIL_ID" ]; then print_help; exit 1; fi
+if [ -z "$JAIL_NAME" ]; then print_help; exit 1; fi
 
-jailconf="/usr/jails/$JAIL_ID/etc/serverconf"
+jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
 
 if [ ! -f "$jailconf" ]; then
   JAIL_TYPE="default"
@@ -38,12 +38,12 @@ else
 fi
 
 #ezjail-admin lists all installed jails, running or not
-jail_rec=$(ezjail-admin list | tail -n +3 | grep "\b$JAIL_ID\b")
+jail_rec=$(ezjail-admin list | tail -n +3 | grep "\b$JAIL_NAME\b")
 
 if [ -n "$jail_rec" ]; then
   JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
 else
-  echo "$(basename $0): Jail '$JAIL_ID' is not installed, exiting." >&2;
+  echo "$(basename $0): Jail '$JAIL_NAME' is not installed, exiting." >&2;
   exit 1
 fi
 
@@ -55,7 +55,7 @@ fi
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_ID="$JAIL_ID" \
+  env JAIL_NAME="$JAIL_NAME" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
@@ -65,8 +65,8 @@ jail_hook () {
 
 if [ -z "$JAIL_UP" ]; then
   echo "Jail is not currently running, required for update ..."
-  if ! ezjail-admin start "$JAIL_ID"; then
-    echo "$(basename $0): Unable to start jail '$JAIL_ID', exiting" >&2
+  if ! ezjail-admin start "$JAIL_NAME"; then
+    echo "$(basename $0): Unable to start jail '$JAIL_NAME', exiting" >&2
     exit 1
   fi
 fi
@@ -79,5 +79,5 @@ jail_hook 'preupdate' 'host'
 
 if [ -z "$JAIL_UP" ]; then
   echo "Update complete. Returning jail to stopped state ..."
-  ezjail-admin stop "$JAIL_ID"
+  ezjail-admin stop "$JAIL_NAME"
 fi

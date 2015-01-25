@@ -12,23 +12,18 @@ JAIL_USER="$(who -m | cut -d ' ' -f1)"
 print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
-  echo " -j=id      Id of jail" >&2;
+  echo " -n=name    Name of jail" >&2;
   echo " -i=ipaddr  Address to bind jail" >&2;
   echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
   echo " -h         Print this help message" >&2;
 }
 
-if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
-  exit 1
-fi
-
 ## Parse options
 
-while getopts "j:i:t:u:h" opt; do
+while getopts "n:i:t:u:h" opt; do
   case $opt in
-    j) JAIL_ID="$OPTARG";;
+    n) JAIL_NAME="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
     t) JAIL_TYPE="$OPTARG";;
     u) JAIL_USER="$OPTARG";;
@@ -36,6 +31,11 @@ while getopts "j:i:t:u:h" opt; do
     \?) print_help; exit 1;;
   esac
 done
+
+if [ $(id -u) != 0 ]; then
+  echo "This script must be run as root." 1>&2
+  exit 1
+fi
 
 if [ -z "$JAIL_IP" ]; then print_help; exit 1; fi
 
@@ -55,7 +55,7 @@ if jls -v | grep "$JAIL_IP" > /dev/null; then
 fi
 
 #if no id given, use typeN
-if [ -z "$JAIL_ID" ]; then
+if [ -z "$JAIL_NAME" ]; then
   #get the last jid (jid is incremented on start/restart)
   jid=$(jls | tail -1 | awk '{print $1}')
   if [ $jid == 'JID' ]; then
@@ -64,16 +64,16 @@ if [ -z "$JAIL_ID" ]; then
     #1 plus the last jid at least guarantees a unique name, not descriptive though
     jid=$((jid+1))
   fi
-  JAIL_ID="${JAIL_TYPE}$jid"
+  JAIL_NAME="${JAIL_TYPE}$jid"
 fi
 
 ## Helper functions
 
 cp_conf () {
   local srcpath="$1" destdir="$2" replacevars="$3" ignorevars="$4"
-  env REPLACE_VARS="$replacevars JAIL_ID JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR" \
+  env REPLACE_VARS="$replacevars JAIL_NAME JAIL_IP JAIL_TYPE JAIL_USER JAIL_CONF_DIR" \
       NO_REPLACE_VARS="$ignorevars" \
-      JAIL_ID="$JAIL_ID" \
+      JAIL_NAME="$JAIL_NAME" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
@@ -83,22 +83,22 @@ cp_conf () {
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_ID="$JAIL_ID" \
+  env JAIL_NAME="$JAIL_NAME" \
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
       APP_ROOT="$APP_ROOT" \
-      EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_ID" \
+      EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_NAME" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
 }
 
 
 ## Create
 
-ezjail-admin create "$JAIL_ID" "$JAIL_IP"
+ezjail-admin create "$JAIL_NAME" "$JAIL_IP"
 
 # add config vars that can be reached within the jail
-jailconf="/usr/jails/$JAIL_ID/etc/serverconf"
+jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
 
 if [ ! -f "$jailconf" ]; then touch "$jailconf"; fi
 
@@ -126,17 +126,17 @@ fi
 
 echo "Initializing jail ..."
 
-ezjail-admin start "$JAIL_ID"
+ezjail-admin start "$JAIL_NAME"
 
 jail_hook 'init' 'jail'
 
 # Copy jail config to jail after init has chance to install packages
 
 if [ -d "$APP_ROOT/jails/default/jail" ]; then
-  cp_conf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_ID"
+  cp_conf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_NAME"
 fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
-  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_ID"
+  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_NAME"
 fi
 
 ## Postinit
@@ -145,6 +145,6 @@ jail_hook 'postinit' 'host'
 
 echo "Restarting jail ..."
 
-ezjail-admin restart "$JAIL_ID"
+ezjail-admin restart "$JAIL_NAME"
 
-echo "$JAIL_ID jail running on $JAIL_IP"
+echo "$JAIL_NAME jail running on $JAIL_IP"

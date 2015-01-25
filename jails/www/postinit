@@ -3,7 +3,7 @@
 ## jail has been created and started. Ran after jail/init.
 ## The default/postinit file is run for all new jails, and before any
 ## type-specific jail/postinit script is run.
-## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 #re-mount using updated /etc/fstab
 mount -a

@@ -3,10 +3,10 @@
 ## jail has been created and started. Ran before jail/init.
 ## The default/preinit file is run for all new jails, and before any
 ## type-specific jail/preinit script is run.
-## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 HOST_APP="$(cd $(dirname $(readlink -f $JAIL_CONF_DIR))/../../app; pwd)"
-JAIL_APP="/usr/jails/$JAIL_ID/usr/local/opt/kola/app"
+JAIL_APP="/usr/jails/$JAIL_NAME/usr/local/opt/kola/app"
 
 mkdir -p "$JAIL_APP"
 

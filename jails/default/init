@@ -3,7 +3,7 @@
 ## has been created started. It's run after jailtype/init and before
 ## {jailtype}/postinit. The script default/init is run for all new jails,
 ## and before any type-specific {jailtype}/init script is run.
-## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 if ! pkg -N  >/dev/null 2>&1; then
   env ASSUME_ALWAYS_YES=YES pkg bootstrap
@@ -22,7 +22,7 @@ chsh -s /bin/sh
 if [ -n "$JAIL_USER" ]; then
   if ! id "$JAIL_USER" >/dev/null 2>&1; then
     if pw useradd -n "$JAIL_USER" -m -s /bin/sh; then
-      echo "Added user '$JAIL_USER' to $JAIL_ID jail"
+      echo "Added user '$JAIL_USER' to $JAIL_NAME jail"
     fi
   fi
 fi

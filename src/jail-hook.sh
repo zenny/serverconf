@@ -1,7 +1,7 @@
 #!/bin/sh -e
 ## Run the command hook files for jailcreate and jailupdate.
 ## See jailcreate/jailupdate for passed environmental vars.
-## Some include: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, APP_ROOT, EZJAIL_CONF
+## Some include: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, APP_ROOT, EZJAIL_CONF
 
 HOOK_NAME="${1%.*}" #remove file extension if given
 HOOK_ENV="$2"
@@ -76,9 +76,9 @@ fi
 
 if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'jail' ]; then
 
-  mkdir -p "/usr/jails/$JAIL_ID/tmp/$JAIL_TYPE"
+  mkdir -p "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
 
-  if ! mount_nullfs "$JAIL_CONF_DIR" "/usr/jails/$JAIL_ID/tmp/$JAIL_TYPE"; then
+  if ! mount_nullfs "$JAIL_CONF_DIR" "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"; then
     echo "In '$JAIL_TYPE/$HOOK_NAME', unable to mount $JAIL_CONF_DIR directory within jail, skipping" >&2
 
   else
@@ -87,12 +87,12 @@ if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'jail' ]; then
          HOOK_NAME="$HOOK_NAME" \
          HOOK_ENV="$HOOK_ENV" \
          JAIL_CONF_DIR="/tmp/$JAIL_TYPE" \
-         jexec "$JAIL_ID" sh -e "/tmp/$JAIL_TYPE/$(basename $HOOK_FILE)"; then
+         jexec "$JAIL_NAME" sh -e "/tmp/$JAIL_TYPE/$(basename $HOOK_FILE)"; then
       echo "Error running '$JAIL_TYPE/$HOOK_NAME', continuing" >&2
     fi
 
-    umount "/usr/jails/$JAIL_ID/tmp/$JAIL_TYPE"
+    umount "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
   fi
 
-  rm -rf "/usr/jails/$JAIL_ID/tmp/$JAIL_TYPE"
+  rm -rf "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
 fi

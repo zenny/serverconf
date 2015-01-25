@@ -3,4 +3,4 @@
 ## jail has been created and started. It's run after {jailtype}/init.
 ## The default/postinit file is run for all new jails, and before any
 ## type-specific {jailtype}/init script is run.
-## Available environmental vars: JAIL_ID, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
+## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
