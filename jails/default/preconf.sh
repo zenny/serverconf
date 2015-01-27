@@ -1,8 +1,8 @@
 #!/bin/sh
 ## Used by jailconf, this script is run on the host system before the
-## jail has been created and started. It's run before {jailtype}/init.
-## The default/preinit file is run for all new jails, and before any
-## type-specific {jailtype}/preinit script is run.
+## jail has been created and started. It's run before {jailtype}/conf.
+## The default/preconf file is run for all new jails, and before any
+## type-specific {jailtype}/preconf script is run.
 ## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 # set jail to host time

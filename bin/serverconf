@@ -2,11 +2,11 @@
 ##
 ## The key file is first converted to a string in the local serverconf before
 ## passed as a string to the remote serverconf script. Then, as a string, it's
-## passed to the remote host-init.
+## passed to the remote host-conf.
 
-HOST_INIT_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-init.sh"
-REPO_HOST=$(echo "$HOST_INIT_URL" | awk -F/ '{print $3}')
-INIT_ARGS=''
+HOST_CONF_URL="https://bitbucket.org/hazelnut/serverconf/raw/master/src/host-conf.sh"
+REPO_HOST=$(echo "$HOST_CONF_URL" | awk -F/ '{print $3}')
+CONF_ARGS=''
 PUBKEY_DEFAULT='~/.ssh/id_rsa.pub'
 ENV_OPTS="MAIL_SERVER=\"$MAIL_SERVER\" MAIL_USER=\"$MAIL_USER\" MAIL_PASSWORD=\"$MAIL_PASSWORD\""
 
@@ -51,8 +51,8 @@ if [ -z "$REPO_PASS" ]; then
   stty echo
 fi
 
-INIT_ARGS="$INIT_ARGS -U \"$REPO_USER\" -P \"$REPO_PASS\""
-init_url_auth="https://$REPO_USER:$REPO_PASS@${HOST_INIT_URL#*//}"
+CONF_ARGS="$CONF_ARGS -U \"$REPO_USER\" -P \"$REPO_PASS\""
+conf_url_auth="https://$REPO_USER:$REPO_PASS@${HOST_CONF_URL#*//}"
 
 # Returns a key string and verifies it. The argument can either be a key string
 # of a file path. If it's a strng, it's simply checked and returned. If it's a
@@ -91,7 +91,7 @@ getkeystr () {
 }
 
 ##
-## LOCAL. Download the host-init script and run as root.
+## LOCAL. Download the host-conf script and run as root.
 ##
 
 if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" == '::1' ]; then
@@ -101,14 +101,14 @@ if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" 
     exit 1;
   fi
 
-  init_file=$(mktemp -t $(basename "$HOST_INIT_URL"))
+  conf_file=$(mktemp -t $(basename "$HOST_CONF_URL"))
 
-  if ! fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o "$init_file" "$init_url_auth"; then
-    echo "$(basename $0): Error downloading $init_file, exiting.";
+  if ! fetch -q --no-verify-peer --user-agent 'Wget/1.16' -o "$conf_file" "$conf_url_auth"; then
+    echo "$(basename $0): Error downloading $conf_file, exiting.";
     exit 1;
   else
-    if [ ! -e "$init_file" ]; then
-      echo "$(basename $0): Unable to find init script, exiting.";
+    if [ ! -e "$conf_file" ]; then
+      echo "$(basename $0): Unable to find conf script, exiting.";
       exit 1;
     else
       if [ $(id -u) != 0 ]; then
@@ -116,9 +116,9 @@ if [ "$HOST_NAME" == 'localhost' -o "$HOST_NAME" == '127.0.0.1' -o "$HOST_NAME" 
       fi
       if [ -n "$PUBKEY" ]; then
         PUBKEY=$(getkeystr "$PUBKEY")
-        INIT_ARGS="$INIT_ARGS -k \"$PUBKEY\""
+        CONF_ARGS="$CONF_ARGS -k \"$PUBKEY\""
       fi
-      exec su - root -f -c "env $ENV_OPTS sh -e $init_file $INIT_ARGS"
+      exec su - root -f -c "env $ENV_OPTS sh -e $conf_file $CONF_ARGS"
     fi
   fi
   exit 0
@@ -146,11 +146,11 @@ if ! ssh -q -o 'BatchMode=yes' "$HOST_NAME" true; then
     echo "Added key to $HOST_NAME:$keyringfile"
   fi
 
-  INIT_ARGS="$INIT_ARGS -k \"$keystr\""
+  CONF_ARGS="$CONF_ARGS -k \"$keystr\""
 fi
 
 # Auth ready. Upload and execute.
 
 remote_script="$(ssh -q $HOST_NAME mktemp -t $(basename $0))"
 scp -q "$0" "$HOST_NAME:$remote_script"
-ssh -t "$HOST_NAME" "env $ENV_OPTS sh -e $remote_script $INIT_ARGS localhost"
+ssh -t "$HOST_NAME" "env $ENV_OPTS sh -e $remote_script $CONF_ARGS localhost"

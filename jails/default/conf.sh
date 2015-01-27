@@ -1,8 +1,8 @@
 #!/bin/sh
 ## Used by jailconf, this script is run within the jail after it
-## has been created started. It's run after jailtype/init and before
-## {jailtype}/postinit. The script default/init is run for all new jails,
-## and before any type-specific {jailtype}/init script is run.
+## has been created started. It's run after jailtype/conf and before
+## {jailtype}/postconf. The script default/conf is run for all new jails,
+## and before any type-specific {jailtype}/conf script is run.
 ## Available environmental vars: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, JAIL_CONF_DIR
 
 if ! pkg -N  >/dev/null 2>&1; then

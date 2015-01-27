@@ -1,8 +1,8 @@
 #!/bin/sh -e
 ## Create an empty jail and set its environment.
-## This script looks for the file hooks: preinit, init, and postinit,located within
+## This script looks for the file hooks: preconf, conf, and postconf,located within
 ## the jail type directory.
-## Preinit and postinit are run on the host system, init is run within the jail itself.
+## Preconf and postconf are run on the host system, conf is run within the jail itself.
 
 #shoud be something like /usr/local/opt/serverconf
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
@@ -107,10 +107,10 @@ if ! sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype" -v "$JAIL_TYP
   exit 1
 fi
 
-## Preinit
+## Preconf
 ## Modify config dir before copying into jail.
 
-jail_hook 'preinit' 'host'
+jail_hook 'preconf' 'host'
 
 # Copy jail config to host
 
@@ -121,14 +121,14 @@ if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/host" ]; then
   cp_conf "$APP_ROOT/jails/$JAIL_TYPE/host" /
 fi
 
-## Init
+## Conf
 ## Start jail and run scripts within it.
 
-echo "Initializing jail ..."
+echo "Configuring jail ..."
 
 ezjail-admin start "$JAIL_NAME"
 
-# Copy jail config to jail after init has chance to install packages
+# Copy jail config to jail after conf has chance to install packages
 
 if [ -d "$APP_ROOT/jails/default/jail" ]; then
   cp_conf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_NAME"
@@ -137,11 +137,11 @@ if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
   cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_NAME"
 fi
 
-jail_hook 'init' 'jail'
+jail_hook 'conf' 'jail'
 
-## Postinit
+## Postconf
 
-jail_hook 'postinit' 'host'
+jail_hook 'postconf' 'host'
 
 echo "Restarting jail ..."
 
