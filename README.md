@@ -62,7 +62,7 @@ See `./host/usr/local/bin` and `./host/usr/local/sbin` for some useful commands.
 
 ~~~
 [host]~$ jls
-[host]~$ jailcreate -j myjail -i 192.168.0.2
+[host]~$ jailconf -n myjail -i 192.168.0.2
 [host]~$ jlogin myjail
 [myjail]~$ exit
 [host]~$ jaildelete myjail

@@ -1,5 +1,5 @@
 #!/bin/sh
-## Used by jailcreate, this script is run on the host system before the
+## Used by jailconf, this script is run on the host system before the
 ## jail has been created and started. It's run before {jailtype}/init.
 ## The default/preinit file is run for all new jails, and before any
 ## type-specific {jailtype}/preinit script is run.

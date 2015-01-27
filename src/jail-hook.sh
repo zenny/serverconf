@@ -1,6 +1,6 @@
 #!/bin/sh -e
-## Run the command hook files for jailcreate and jailupdate.
-## See jailcreate/jailupdate for passed environmental vars.
+## Run the command hook files for jailconf and jailupdate.
+## See jailconf/jailupdate for passed environmental vars.
 ## Some include: JAIL_NAME, JAIL_IP, JAIL_TYPE, JAIL_USER, APP_ROOT, EZJAIL_CONF
 
 HOOK_NAME="${1%.*}" #remove file extension if given
