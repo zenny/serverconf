@@ -7,6 +7,7 @@ HOOK_NAME="${1%.*}" #remove file extension if given
 HOOK_ENV="$2"
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/..; pwd)"
 JAIL_CONF_DIR=''
+JAIL_DEFAULT='default'
 
 if [ "$HOOK_ENV" != 'host' -a "$HOOK_ENV" != 'jail' ]; then
   echo "$(basename $0): The hook '$HOOK_NAME' must be run in either the 'host' or 'jail' environment." >&2
@@ -49,24 +50,62 @@ if [ -z "$JAIL_CONF_DIR" ]; then
   exit 1
 fi
 
+run_script_host () {
+  local hook_script="$1" jail_type="$2"
+  if [ -f "$hook_script" ]; then
+    echo "Running '$HOOK_NAME' hook for '$jail_type' on $HOOK_ENV ..."
+    if ! env \
+         HOOK_NAME="$HOOK_NAME" \
+         HOOK_ENV="$HOOK_ENV" \
+         JAIL_CONF_DIR="$JAIL_CONF_DIR" \
+         sh -e "$hook_script"; then
+      echo "Error running '$jail_type/$HOOK_NAME', continuing" >&2
+    fi
+  fi
+}
+
+run_script_jail () {
+  local hook_script="$1" jail_type="$2"
+  local jail_conf_dir="$APP_ROOT/jails/$jail_type"
+
+  mkdir -p "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+
+  if ! mount_nullfs "$jail_conf_dir" "/usr/jails/$JAIL_NAME/tmp/$jail_type"; then
+    echo "In '$jail_type/$HOOK_NAME', unable to mount $jail_conf_dir directory within jail, skipping" >&2
+
+  else
+    if [ -f "$hook_script" ]; then
+      echo "Running '$HOOK_NAME' hook for '$jail_type' in $HOOK_ENV ..."
+      if ! env \
+           HOOK_NAME="$HOOK_NAME" \
+           HOOK_ENV="$HOOK_ENV" \
+           JAIL_CONF_DIR="/tmp/$jail_type" \
+           jexec "$JAIL_NAME" sh -e "/tmp/$jail_type/$(basename $hook_script)"; then
+        echo "Error running '$jail_type/$HOOK_NAME', continuing" >&2
+      fi
+    fi
+    umount "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+  fi
+  rm -rf "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+}
+
 
 cd "$JAIL_CONF_DIR"
 
 #grab jail hook file, ignore file extension, only return first match (shouldn't be)
+HOOK_DEFAULT_FILE=$(find "$APP_ROOT/jails/$JAIL_DEFAULT" -name "$HOOK_NAME*" -type f -maxdepth 1 | head -n1)
 HOOK_FILE=$(find "$JAIL_CONF_DIR" -name "$HOOK_NAME*" -type f -maxdepth 1 | head -n1)
 
 ##
-## Run hook on host
+## Run hook on host. Run default jail before specific type.
 ##
 
-if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'host' ]; then
-  echo "Running '$HOOK_NAME' hook for '$JAIL_TYPE' on $HOOK_ENV ..."
-  if ! env \
-       HOOK_NAME="$HOOK_NAME" \
-       HOOK_ENV="$HOOK_ENV" \
-       JAIL_CONF_DIR="$JAIL_CONF_DIR" \
-       sh -e "$HOOK_FILE"; then
-    echo "Error running '$JAIL_TYPE/$HOOK_NAME', continuing" >&2
+if [ "$HOOK_ENV" == 'host' ]; then
+  run_script_host "$HOOK_DEFAULT_FILE" "$JAIL_DEFAULT"
+
+  #don't want to run the default twice
+  if [ "$JAIL_TYPE" != "$JAIL_DEFAULT" ]; then
+    run_script_host "$HOOK_FILE" "$JAIL_TYPE"
   fi
 fi
 
@@ -74,25 +113,10 @@ fi
 ## Run hook in jail
 ##
 
-if [ -f "$HOOK_FILE" -a "$HOOK_ENV" == 'jail' ]; then
+if [ "$HOOK_ENV" == 'jail' ]; then
+  run_script_jail "$HOOK_DEFAULT_FILE" "$JAIL_DEFAULT"
 
-  mkdir -p "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
-
-  if ! mount_nullfs "$JAIL_CONF_DIR" "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"; then
-    echo "In '$JAIL_TYPE/$HOOK_NAME', unable to mount $JAIL_CONF_DIR directory within jail, skipping" >&2
-
-  else
-    echo "Running '$HOOK_NAME' hook for '$JAIL_TYPE' in $HOOK_ENV ..."
-    if ! env \
-         HOOK_NAME="$HOOK_NAME" \
-         HOOK_ENV="$HOOK_ENV" \
-         JAIL_CONF_DIR="/tmp/$JAIL_TYPE" \
-         jexec "$JAIL_NAME" sh -e "/tmp/$JAIL_TYPE/$(basename $HOOK_FILE)"; then
-      echo "Error running '$JAIL_TYPE/$HOOK_NAME', continuing" >&2
-    fi
-
-    umount "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
+  if [ "$JAIL_TYPE" != "$JAIL_DEFAULT" ]; then
+    run_script_jail "$HOOK_FILE" "$JAIL_TYPE"
   fi
-
-  rm -rf "/usr/jails/$JAIL_NAME/tmp/$JAIL_TYPE"
 fi

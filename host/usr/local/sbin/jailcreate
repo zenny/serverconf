@@ -32,14 +32,14 @@ while getopts "n:i:t:u:h" opt; do
   esac
 done
 
+if [ -z "$JAIL_IP" ]; then print_help; exit 1; fi
+
+if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
+
 if [ $(id -u) != 0 ]; then
   echo "This script must be run as root." 1>&2
   exit 1
 fi
-
-if [ -z "$JAIL_IP" ]; then print_help; exit 1; fi
-
-if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
 
 if [ ! -d "$APP_ROOT/jails/$JAIL_TYPE" ]; then
   echo "Jail type '$JAIL_TYPE' doesn't exist, aborting." >&2
@@ -128,8 +128,6 @@ echo "Initializing jail ..."
 
 ezjail-admin start "$JAIL_NAME"
 
-jail_hook 'init' 'jail'
-
 # Copy jail config to jail after init has chance to install packages
 
 if [ -d "$APP_ROOT/jails/default/jail" ]; then
@@ -138,6 +136,8 @@ fi
 if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
   cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_NAME"
 fi
+
+jail_hook 'init' 'jail'
 
 ## Postinit
 
