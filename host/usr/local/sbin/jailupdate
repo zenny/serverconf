@@ -8,7 +8,9 @@ print_help () {
 	echo " -A  Update all jails" >&2;
 }
 
+##
 ## Parse args and get jail environmental vars
+##
 
 while getopts "Ah" opt; do
   case $opt in
@@ -28,12 +30,13 @@ if [ $(id -u) != 0 ]; then
   exit 1
 fi
 
-jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
+jail_conf_file="/usr/jails/$JAIL_NAME/etc/serverconf"
 
-if [ ! -f "$jailconf" ]; then
+#determine jail type, should be set in /etc/serverconf
+if [ ! -f "$jail_conf_file" ]; then
   JAIL_TYPE="default"
 else
-  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype")
+  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jail_conf_file" -k "jailtype")
   if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE="default"; fi
 fi
 

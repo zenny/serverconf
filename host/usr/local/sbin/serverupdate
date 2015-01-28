@@ -1,0 +1,57 @@
+#!/bin/sh
+
+print_help () {
+  echo "Usage: $(basename $0) [options]" >&2;
+  echo "Options:" >&2;
+  echo " -p  Install ports" >&2;
+  echo " -h  Print this help message" >&2;
+}
+
+while getopts "ph" opt; do
+  case $opt in
+    p) INSTALL_PORTS=1;;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
+done
+
+##
+## SYSTEM
+##
+
+env PAGER=cat freebsd-update fetch install
+
+##
+## PACAKGES
+##
+
+# Update package system (binaries)
+if ! pkg -N >/dev/null 2>&1; then
+  env ASSUME_ALWAYS_YES=YES pkg bootstrap
+fi
+
+pkg update
+
+##
+## PORTS
+##
+
+#check if port system is installed. is this reliable?
+if [ -d /usr/ports ]; then
+  #get latest
+  portsnap fetch update
+
+  #upgrade all outdated ports, rebuild
+  if [ -z $(which portmaster) ]; then
+    echo "$(basename $0): portmaster is required to update ports, skipping." >&2;
+  else
+    portmaster -af
+    #portmaster --clean-distfiles
+  fi
+
+elif [ -n "$INSTALL_PORTS" ]; then
+  portsnap fetch extract
+
+  #install portmaster
+  cd /usr/ports/ports-mgmt/portmaster && env WITH="BASH" BATCH=1 make install clean
+fi
