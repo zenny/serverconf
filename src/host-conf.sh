@@ -20,6 +20,7 @@ print_help () {
   echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
   echo " -U=username  App repo login ($REPO_HOST)" >&2;
   echo " -P=password  App repo password" >&2;
+  echo " -r           Restart system after configuration" >&2;
 }
 
 cp_conf () {
@@ -50,13 +51,14 @@ fi
 ## PARSE OPTIONS
 ##
 
-while getopts "u:p:k:U:P:h" opt; do
+while getopts "u:p:k:U:P:rh" opt; do
   case $opt in
     u) ADMIN_USER="$OPTARG";;
     p) ADMIN_PASS="$OPTARG";;
     k) PUBKEY="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
+    r) RESTART_FLAG='y';;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -259,9 +261,13 @@ if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
 fi
 
 #ask to reboot system. default is yes and will timeout after 30 sec.
-read -t 30 -p "Finished host setup, reboot? [y] " reboot_flag
+#even though it's shutting down now, it appears this script finishes
+if [ -z "$RESTART_FLAG" ]; then
+  read -t 30 -p "Finished host setup, reboot? [y] " RESTART_FLAG
+  if [ -z "$RESTART_FLAG" ]; then RESTART_FLAG='y'; fi
+fi
 
-if [ -z "$reboot_flag" -o "$reboot_flag" == 'y' -o "$reboot_flag" == 'yes' ]; then
-  #even though it's shutting down now, it appears this script finishes
+if [ "$RESTART_FLAG" == 'y' -o "$RESTART_FLAG" == 'yes' ]; then
+  echo -e "\nRestarting system ..."
   shutdown -r now
 fi
