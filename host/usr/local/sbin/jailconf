@@ -8,24 +8,25 @@
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #add current user to jail by default (even if sudo'd)
 JAIL_USER="$(who -m | cut -d ' ' -f1)"
+JAIL_TYPE_DEFAULT='default'
 
 print_help () {
   echo "Usage: $(basename $0) [options] -i=ipaddr" >&2;
   echo " -i=ipaddr  Address to bind jail" >&2;
   echo "Options:" >&2;
   echo " -n=name    Name of jail" >&2;
-  echo " -t=type    Jail type (see $APP_ROOT/jails)" >&2;
+  echo " -c=conf    Jail config type (see $APP_ROOT/jails)" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
   echo " -h         Print this help message" >&2;
 }
 
 ## Parse options
 
-while getopts "n:i:t:u:h" opt; do
+while getopts "n:i:c:u:h" opt; do
   case $opt in
     n) JAIL_NAME="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
-    t) JAIL_TYPE="$OPTARG";;
+    c) JAIL_TYPE="$OPTARG";;
     u) JAIL_USER="$OPTARG";;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
@@ -37,12 +38,9 @@ if [ $(id -u) != 0 ]; then
   exit 1
 fi
 
-if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
+if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE="$JAIL_TYPE_DEFAULT"; fi
 
-if [ ! -d "$APP_ROOT/jails/$JAIL_TYPE" ]; then
-  echo "$(basename $0): Jail type '$JAIL_TYPE' doesn't exist, aborting." >&2
-  exit 1
-fi
+JAIL_CONF_DIR=$(sh -e "$APP_ROOT/src/get-jail-conf.sh" "$JAIL_TYPE")
 
 if [ -z "$JAIL_IP" ]; then
   print_help
@@ -55,7 +53,10 @@ elif jls -v | grep "$JAIL_IP" > /dev/null; then
   fi
 fi
 
-#if no id given, use typeN
+##
+## Generate JAIL_NAME if not provided
+##
+
 if [ -z "$JAIL_NAME" ]; then
   #get the last jid (jid is incremented on start/restart)
   jid=$(jls | tail -1 | awk '{print $1}')
@@ -87,26 +88,29 @@ cp_conf () {
       JAIL_IP="$JAIL_IP" \
       JAIL_TYPE="$JAIL_TYPE" \
       JAIL_USER="$JAIL_USER" \
-      JAIL_CONF_DIR="$APP_ROOT/jails/$jailtype" \
+      JAIL_CONF_DIR="$JAIL_CONF_DIR" \
       sh -e "$APP_ROOT/src/cp-conf.sh" "$srcpath" "$destdir"
 }
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_IP="$JAIL_IP" \
-      JAIL_USER="$JAIL_USER" \
+  env JAIL_USER="$JAIL_USER" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
-
-## Create
+##
+## Create jail
+##
 
 if ! ezjail-admin create "$JAIL_NAME" "$JAIL_IP"; then
   echo "$(basename $0): Unable to create jail, aborting." >&2;
   exit 1
 fi
 
-# add config vars that can be reached within the jail
+##
+## Set up jail's /etc/serverconf
+##
+
 jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
 
 if [ ! -f "$jailconf" ]; then touch "$jailconf"; fi
@@ -116,22 +120,31 @@ if ! sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype" -v "$JAIL_TYP
   exit 1
 fi
 
-## Preconf
-## Modify config dir before copying into jail.
+##
+## RUN HOOKS
+##
+
+JAIL_DEFAULT_CONF_DIR=$(sh -e "$APP_ROOT/src/get-jail-conf.sh" "$JAIL_TYPE_DEFAULT")
+
+#
+# Preconf - can modify config dir before copying into jail
+#
 
 jail_hook 'preconf' 'host'
 
-# Copy jail config to host
+# copy jail config to host
 
-if [ -d "$APP_ROOT/jails/default/host" ]; then
-  cp_conf "$APP_ROOT/jails/default/host" /
-fi
-if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/host" ]; then
-  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/host" /
+if [ -d "$JAIL_DEFAULT_CONF_DIR/host" ]; then
+  cp_conf "$JAIL_DEFAULT_CONF_DIR/host" /
 fi
 
-## Conf
-## Start jail and run scripts within it.
+if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" -a -d "$JAIL_CONF_DIR/host" ]; then
+  cp_conf "$JAIL_CONF_DIR/host" /
+fi
+
+#
+# Conf - start jail and run scripts within it
+#
 
 echo "Configuring jail ..."
 
@@ -140,18 +153,21 @@ if ! ezjail-admin start "$JAIL_NAME"; then
   exit 1
 fi
 
-# Copy jail config to jail after conf has chance to install packages
+# copy jail config to jail after conf has chance to install packages
 
-if [ -d "$APP_ROOT/jails/default/jail" ]; then
-  cp_conf "$APP_ROOT/jails/default/jail" "/usr/jails/$JAIL_NAME"
+if [ -d "$JAIL_DEFAULT_CONF_DIR/jail" ]; then
+  cp_conf "$JAIL_DEFAULT_CONF_DIR/jail" "/usr/jails/$JAIL_NAME"
 fi
-if [ "$JAIL_TYPE" != "default" -a -d "$APP_ROOT/jails/$JAIL_TYPE/jail" ]; then
-  cp_conf "$APP_ROOT/jails/$JAIL_TYPE/jail" "/usr/jails/$JAIL_NAME"
+
+if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" -a -d "$JAIL_CONF_DIR/jail" ]; then
+  cp_conf "$JAIL_CONF_DIR/jail" "/usr/jails/$JAIL_NAME"
 fi
 
 jail_hook 'conf' 'jail'
 
-## Postconf
+#
+# Postconf
+#
 
 jail_hook 'postconf' 'host'
 
