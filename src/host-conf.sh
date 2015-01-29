@@ -5,6 +5,7 @@ if [ -z "$SWAP_FILE_SIZE" ]; then SWAP_FILE_SIZE=1024; fi #1gig
 if [ -z "$MAIL_SERVER" ]; then MAIL_SERVER='smtp.gmail.com:587'; fi #outgoing only
 if [ -z "$MAIL_USER" ]; then MAIL_USER=''; fi
 if [ -z "$MAIL_PASSWORD" ]; then MAIL_PASSWORD=''; fi
+if [ -z "$RESTART_FLAG" ]; then RESTART_FLAG=''; fi #will prompt, timeout to yes
 
 REPO_URL="https://bitbucket.org/hazelnut/serverconf.git"
 REPO_HOST=$(echo "$REPO_URL" | awk -F/ '{print $3}')
@@ -20,7 +21,6 @@ print_help () {
   echo " -k=pubkey    Admin user public ssh key for login (string)" >&2;
   echo " -U=username  App repo login ($REPO_HOST)" >&2;
   echo " -P=password  App repo password" >&2;
-  echo " -r           Restart system after configuration" >&2;
 }
 
 cp_conf () {
@@ -51,14 +51,13 @@ fi
 ## PARSE OPTIONS
 ##
 
-while getopts "u:p:k:U:P:rh" opt; do
+while getopts "u:p:k:U:P:h" opt; do
   case $opt in
     u) ADMIN_USER="$OPTARG";;
     p) ADMIN_PASS="$OPTARG";;
     k) PUBKEY="$OPTARG";;
     U) REPO_USER="$OPTARG";;
     P) REPO_PASS="$OPTARG";;
-    r) RESTART_FLAG='y';;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -260,10 +259,10 @@ if [ $(id -u) == 0 -a -f '/root/.ssh/authorized_keys' ]; then
   echo "Removed key from $(hostname):/root/.ssh/authorized_keys"
 fi
 
-#ask to reboot system. default is yes and will timeout after 30 sec.
-#even though it's shutting down now, it appears this script finishes
+#ask to reboot system. default will timeout to yes.
+#it looks like this script finishes beore the shutdown.
 if [ -z "$RESTART_FLAG" ]; then
-  read -t 30 -p "Finished host setup, reboot? [y] " RESTART_FLAG
+  read -t 15 -p "Finished host setup, reboot? [y] " RESTART_FLAG || true
   if [ -z "$RESTART_FLAG" ]; then RESTART_FLAG='y'; fi
 fi
 
