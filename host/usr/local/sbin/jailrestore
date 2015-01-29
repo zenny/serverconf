@@ -1,3 +1,121 @@
-#!/bin/sh
+#!/bin/sh -e
 
-ezjail-admin create -a "$ARCHIVE_FILE"
+APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
+
+print_help () {
+  echo "Usage: $(basename $0) [options] -i=ipaddr jailarchive" >&2;
+  echo " -i=ipaddr  Address to bind jail" >&2;
+  echo "Options:" >&2;
+  echo " -n=name    Name of jail" >&2;
+  echo " -s         Don't start jail when it's restored" >&2;
+  echo " -h         Print this help message" >&2;
+}
+
+## Parse options
+
+while getopts "n:i:sh" opt; do
+  case $opt in
+    n) JAIL_NAME="$OPTARG";;
+    i) JAIL_IP="$OPTARG";;
+    s) NO_START_FLAG=1;;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
+done
+
+for lastarg; do true; done
+JAIL_SAVE_FILE="$lastarg"
+
+#just verify it's a file, let ezjail-admin bork on a bad archive
+if [ ! -f "$JAIL_SAVE_FILE" ]; then
+  print_help
+  exit 1
+fi
+
+if [ -z "$NO_START_FLAG" ]; then JAIL_UP=1; fi
+
+#parse name from filename, either in standard format or use basename
+#standard save format: jailname-jailtype-hostname-date.tar.gz
+if [ -z "$JAIL_NAME" ]; then
+  if basename "$JAIL_SAVE_FILE" | grep -E ".+-.+-.+-[0-9]+\." > /dev/null; then
+    JAIL_NAME=$(basename "$JAIL_SAVE_FILE" | cut -d '-' -f1)
+  else
+    save_file_basename=$(basename "$JAIL_SAVE_FILE")
+    JAIL_NAME="${save_file_basename%%.*}" #remove extension
+  fi
+fi
+
+#ezjail converts all non-alphanums to underscore, we should too
+JAIL_NAME=$(echo -n "$JAIL_NAME" | tr -c '[[:alnum:]]' '_')
+
+if [ -e "/usr/local/etc/ezjail/$JAIL_NAME" ]; then
+  echo "$(basename $0): Jail '$JAIL_NAME' already exists, use a different name." >&2;
+  exit 1
+fi
+
+if [ -z "$JAIL_IP" ]; then
+  echo "$(basename $0): Requires an ip address to bind jail on, exiting." >&2;
+  exit 1
+elif jls -v | grep "$JAIL_IP" > /dev/null; then
+  echo -n "Address $JAIL_IP already used, you may experience network problems." 1>&2
+  read -p " Continue? (y/n) " reply
+  if [ "$reply" != 'y' -a "$reply" != 'yes' ]; then
+    exit 0
+  fi
+fi
+
+
+jail_hook () {
+  local hookname="$1" hookenv="$2"
+  env JAIL_NAME="$JAIL_NAME" \
+      JAIL_IP="$JAIL_IP" \
+      JAIL_TYPE="$JAIL_TYPE" \
+      JAIL_USER="$(who -m | cut -d ' ' -f1)" \
+      JAIL_UP="$JAIL_UP" \
+      APP_ROOT="$APP_ROOT" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
+}
+
+##
+## CREATE JAIL
+##
+
+if ! ezjail-admin create -a "$JAIL_SAVE_FILE" "$JAIL_NAME" "$JAIL_IP"; then
+  echo "$(basename $0): Unable to create jail from archive, aborting." >&2;
+  exit 1
+fi
+
+##
+## Determine jail type from /etc/serverconf
+##
+
+jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
+
+if [ -f "$jailconf" ]; then
+  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype")
+fi
+
+if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
+
+##
+## RUN HOOKS, START JAIL
+##
+
+jail_hook 'prerestore' 'host'
+
+if [ -z "$NO_START_FLAG" ]; then
+  if ! ezjail-admin start "$JAIL_NAME"; then
+    echo "$(basename $0): Unable to start jail, aborting." >&2;
+    exit 1
+  fi
+fi
+
+jail_hook 'restore' 'jail'
+
+jail_hook 'postrestore' 'host'
+
+if [ -z "$NO_START_FLAG" ]; then
+  echo "Jail restored and running as '$JAIL_NAME'"
+else
+  echo "Jail restored as '$JAIL_NAME'"
+fi

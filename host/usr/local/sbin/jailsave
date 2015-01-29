@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #ezjail default is /usr/jails/ezjail_archives
@@ -7,13 +7,15 @@ JAIL_SAVE_DIR="$APP_ROOT/saved-jails"
 print_help () {
   echo "Usage: $(basename $0) [options] [jailname]" >&2;
   echo "Options:" >&2;
-  echo " -f      Do not stop a running jail before saving" >&2;
-  echo " -d=dir  Directory to store saved jails [$JAIL_SAVE_DIR]" >&2;
+  echo " -f           Do not stop a running jail before saving" >&2;
+  echo " -d=dir       Directory to save the jail archive [$JAIL_SAVE_DIR]" >&2;
+  echo " -n=filename  File basename for saved jail archive [jailname-conftype-hostname-date]" >&2;
 }
 
-while getopts "d:fh" opt; do
+while getopts "d:n:fh" opt; do
   case $opt in
     d) JAIL_SAVE_DIR="$OPTARG";;
+    n) JAIL_SAVE_NAME="$OPTARG";;
     f) FORCE_FLAG=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
@@ -26,7 +28,7 @@ JAIL_NAME="$lastarg"
 if [ -z "$JAIL_NAME" ]; then print_help; exit 1; fi
 
 #ezjail-admin lists all installed jails, running or not
-jail_rec=$(ezjail-admin list | tail -n +3 | grep "\b$JAIL_NAME\b")
+jail_rec=$(ezjail-admin list | tail -n +3 | grep "[[:space:]]$JAIL_NAME[[:space:]]")
 
 if [ -n "$jail_rec" ]; then
   JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
@@ -39,26 +41,76 @@ if [ $(echo "$jail_rec" | awk '{print $2}') != 'N/A' ]; then
   JAIL_UP=1
 fi
 
+jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
+
+if [ -f "$jailconf" ]; then
+  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype")
+fi
+
+if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
+
+if [ -z "$JAIL_SAVE_NAME" ]; then
+  JAIL_SAVE_NAME="${JAIL_NAME}-${JAIL_TYPE}-$(hostname)-$(date +'%Y%m%d%H%M%S')"
+else
+	#ezjail converts all non-alphanums to underscore, we should too
+	JAIL_SAVE_NAME=$(echo -n "$JAIL_SAVE_NAME" | tr -c '[[:alnum:]]' '_')
+fi
 
 if [ ! -d "$JAIL_SAVE_DIR" ]; then
   mkdir -p "$JAIL_SAVE_DIR"
 fi
 
 
+jail_hook () {
+  local hookname="$1" hookenv="$2"
+  env JAIL_NAME="$JAIL_NAME" \
+      JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
+      JAIL_IP="$JAIL_IP" \
+      JAIL_TYPE="$JAIL_TYPE" \
+      JAIL_USER="$(who -m | cut -d ' ' -f1)" \
+      JAIL_UP="$JAIL_UP" \
+      APP_ROOT="$APP_ROOT" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
+}
+
+##
+## RUN HOOKS, SAVE JAIL
+##
+
+jail_hook 'presave' 'host'
+
+jail_hook 'save' 'jail'
+
 if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
   echo "Stopping jail before saving ..."
-  ezjail-admin stop "$JAIL_NAME"
+  if ! ezjail-admin stop "$JAIL_NAME"; then
+    echo "$(basename $0): Unable to stop jail, aborting." >&2;
+    exit 1
+  fi
 fi
 
-# jails should be stopped before running. -f does it while running
-# should the default be to stop, or to exit?
+# jails should be stopped before running unless explictly forced
 if [ -n "$FORCE_FLAG" ]; then
-  ezjail-admin archive -f -d "$JAIL_SAVE_DIR" "$JAIL_NAME"
+  ezjail_args='-f'
+fi
+
+echo -n "Saving jail archive ... "
+
+if ! ezjail-admin archive $ezjail_args -d "$JAIL_SAVE_DIR" -a "$JAIL_SAVE_NAME" "$JAIL_NAME"; then
+  echo -e "\n$(basename $0): Unable to archive jail, aborting." >&2;
+  exit 1
 else
-  ezjail-admin archive -d "$JAIL_SAVE_DIR" "$JAIL_NAME"
+	echo "done"
 fi
 
 if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
   echo "Restarting jail ..."
-  ezjail-admin start "$JAIL_NAME"
+  if ! ezjail-admin start "$JAIL_NAME"; then
+    echo "$(basename $0): Unable to start jail, aborting." >&2;
+    exit 1
+  fi
 fi
+
+jail_hook 'postsave' 'host'
+
+echo "Saved jail archive to ${JAIL_SAVE_DIR}/${JAIL_SAVE_NAME}.tar.gz"
