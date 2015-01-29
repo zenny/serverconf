@@ -11,8 +11,6 @@ print_help () {
   echo " -h         Print this help message" >&2;
 }
 
-## Parse options
-
 while getopts "n:i:sh" opt; do
   case $opt in
     n) JAIL_NAME="$OPTARG";;
@@ -22,6 +20,10 @@ while getopts "n:i:sh" opt; do
     \?) print_help; exit 1;;
   esac
 done
+
+##
+## GET PARAMS
+##
 
 for lastarg; do true; done
 JAIL_SAVE_FILE="$lastarg"
@@ -57,24 +59,12 @@ if [ -z "$JAIL_IP" ]; then
   echo "$(basename $0): Requires an ip address to bind jail on, exiting." >&2;
   exit 1
 elif jls -v | grep "$JAIL_IP" > /dev/null; then
-  echo -n "Address $JAIL_IP already used, you may experience network problems." 1>&2
+  echo -n "Address $JAIL_IP is currently in use, you may experience network problems." 1>&2
   read -p " Continue? (y/n) " reply
   if [ "$reply" != 'y' -a "$reply" != 'yes' ]; then
     exit 0
   fi
 fi
-
-
-jail_hook () {
-  local hookname="$1" hookenv="$2"
-  env JAIL_NAME="$JAIL_NAME" \
-      JAIL_IP="$JAIL_IP" \
-      JAIL_TYPE="$JAIL_TYPE" \
-      JAIL_USER="$(who -m | cut -d ' ' -f1)" \
-      JAIL_UP="$JAIL_UP" \
-      APP_ROOT="$APP_ROOT" \
-      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
-}
 
 ##
 ## CREATE JAIL
@@ -86,20 +76,15 @@ if ! ezjail-admin create -a "$JAIL_SAVE_FILE" "$JAIL_NAME" "$JAIL_IP"; then
 fi
 
 ##
-## Determine jail type from /etc/serverconf
-##
-
-jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
-
-if [ -f "$jailconf" ]; then
-  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jailconf" -k "jailtype")
-fi
-
-if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
-
-##
 ## RUN HOOKS, START JAIL
 ##
+
+jail_hook () {
+  local hookname="$1" hookenv="$2"
+  env JAIL_IP="$JAIL_IP" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
+}
+
 
 jail_hook 'prerestore' 'host'
 

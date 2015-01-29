@@ -22,6 +22,10 @@ while getopts "d:n:fh" opt; do
   esac
 done
 
+##
+## CHECK PARAMS
+##
+
 for lastarg; do true; done
 JAIL_NAME="$lastarg"
 
@@ -30,15 +34,9 @@ if [ -z "$JAIL_NAME" ]; then print_help; exit 1; fi
 #ezjail-admin lists all installed jails, running or not
 jail_rec=$(ezjail-admin list | tail -n +3 | grep "[[:space:]]$JAIL_NAME[[:space:]]")
 
-if [ -n "$jail_rec" ]; then
-  JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
-else
+if [ -z "$jail_rec" ]; then
   echo "$(basename $0): Jail '$JAIL_NAME' is not installed, exiting." >&2;
   exit 1
-fi
-
-if [ $(echo "$jail_rec" | awk '{print $2}') != 'N/A' ]; then
-  JAIL_UP=1
 fi
 
 jailconf="/usr/jails/$JAIL_NAME/etc/serverconf"
@@ -52,30 +50,20 @@ if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE='default'; fi
 if [ -z "$JAIL_SAVE_NAME" ]; then
   JAIL_SAVE_NAME="${JAIL_NAME}-${JAIL_TYPE}-$(hostname)-$(date +'%Y%m%d%H%M%S')"
 else
-	#ezjail converts all non-alphanums to underscore, we should too
-	JAIL_SAVE_NAME=$(echo -n "$JAIL_SAVE_NAME" | tr -c '[[:alnum:]]' '_')
+  #ezjail converts all non-alphanums to underscore, we should too
+  JAIL_SAVE_NAME=$(echo -n "$JAIL_SAVE_NAME" | tr -c '[[:alnum:]]' '_')
 fi
-
-if [ ! -d "$JAIL_SAVE_DIR" ]; then
-  mkdir -p "$JAIL_SAVE_DIR"
-fi
-
-
-jail_hook () {
-  local hookname="$1" hookenv="$2"
-  env JAIL_NAME="$JAIL_NAME" \
-      JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
-      JAIL_IP="$JAIL_IP" \
-      JAIL_TYPE="$JAIL_TYPE" \
-      JAIL_USER="$(who -m | cut -d ' ' -f1)" \
-      JAIL_UP="$JAIL_UP" \
-      APP_ROOT="$APP_ROOT" \
-      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
-}
 
 ##
 ## RUN HOOKS, SAVE JAIL
 ##
+
+jail_hook () {
+  local hookname="$1" hookenv="$2"
+  env JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
+}
+
 
 jail_hook 'presave' 'host'
 
@@ -96,11 +84,15 @@ fi
 
 echo -n "Saving jail archive ... "
 
+if [ ! -d "$JAIL_SAVE_DIR" ]; then
+  mkdir -p "$JAIL_SAVE_DIR"
+fi
+
 if ! ezjail-admin archive $ezjail_args -d "$JAIL_SAVE_DIR" -a "$JAIL_SAVE_NAME" "$JAIL_NAME"; then
   echo -e "\n$(basename $0): Unable to archive jail, aborting." >&2;
   exit 1
 else
-	echo "done"
+  echo "done"
 fi
 
 if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then

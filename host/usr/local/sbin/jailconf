@@ -93,13 +93,9 @@ cp_conf () {
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_NAME="$JAIL_NAME" \
-      JAIL_IP="$JAIL_IP" \
-      JAIL_TYPE="$JAIL_TYPE" \
+  env JAIL_IP="$JAIL_IP" \
       JAIL_USER="$JAIL_USER" \
-      APP_ROOT="$APP_ROOT" \
-      EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_NAME" \
-      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
 

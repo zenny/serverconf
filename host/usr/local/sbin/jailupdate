@@ -9,10 +9,6 @@ print_help () {
   echo " -A  Update all jails" >&2;
 }
 
-##
-## Parse args and get jail environmental vars
-##
-
 while getopts "bAh" opt; do
   case $opt in
     b) UPDATE_BASEJAIL=1;;
@@ -22,32 +18,19 @@ while getopts "bAh" opt; do
   esac
 done
 
+##
+## GET PARAMS
+##
+
 for lastarg; do true; done
 JAIL_NAME="$lastarg"
 
 if [ -z "$JAIL_NAME" ]; then print_help; exit 1; fi
 
-if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
-  exit 1
-fi
-
-jail_conf_file="/usr/jails/$JAIL_NAME/etc/serverconf"
-
-#determine jail type, should be set in /etc/serverconf
-if [ ! -f "$jail_conf_file" ]; then
-  JAIL_TYPE="default"
-else
-  JAIL_TYPE=$(sh -e "$APP_ROOT/src/confkey.sh" -f "$jail_conf_file" -k "jailtype")
-  if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE="default"; fi
-fi
-
-#ezjail-admin lists all installed jails, running or not
+#list all installed jails, running or not
 jail_rec=$(ezjail-admin list | tail -n +3 | grep "\b$JAIL_NAME\b")
 
-if [ -n "$jail_rec" ]; then
-  JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
-else
+if [ -z "$jail_rec" ]; then
   echo "$(basename $0): Jail '$JAIL_NAME' is not installed, exiting." >&2;
   exit 1
 fi
@@ -56,19 +39,24 @@ if [ $(echo "$jail_rec" | awk '{print $2}') != 'N/A' ]; then
   JAIL_UP=1
 fi
 
-## Helper functions
+if [ $(id -u) != 0 ]; then
+  echo "This script must be run as root." 1>&2
+  exit 1
+fi
+
+##
+## RUN HOOKS, UPDATE JAIL
+##
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_NAME="$JAIL_NAME" \
-      JAIL_IP="$JAIL_IP" \
-      JAIL_TYPE="$JAIL_TYPE" \
-      sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
+  sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
 
-## And off we go ...
+jail_hook 'preupdate' 'host'
 
+# ... update jail ...
 if [ -n "$UPDATE_BASEJAIL" ]; then
   #update basejail using freebsd-update. currently broke
   #ezjail-admin update -u
@@ -86,8 +74,6 @@ if [ -z "$JAIL_UP" ]; then
     exit 1
   fi
 fi
-
-jail_hook 'preupdate' 'host'
 
 jail_hook 'update' 'jail'
 
