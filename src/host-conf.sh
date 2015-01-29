@@ -124,7 +124,7 @@ fi
 pkg update
 
 #installs bloated versions, but quick to fetch. should use portmaster
-pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail ssmtp rsync
+pkg install --yes sudo bash bash-completion git emacs-nox11 ezjail openntpd ssmtp rsync
 # pkg install en-freebsd-doc
 
 #install ports tree (source)
@@ -181,11 +181,16 @@ swapon -aL
 swapinfo -hm
 
 #restart services
+
 service syslogd restart
+
 service netif cloneup lo1
+
 service pf start
 #pfctl -F all -f /etc/pf.conf
-#service ntpd start
+
+#using openntpd for time sync because it's more jail-friendly on the net interface
+service openntpd start
 
 #sendmail replaced with outbound-only ssmtp
 service sendmail stop

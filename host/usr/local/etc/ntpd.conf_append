@@ -1,0 +1,4 @@
+# add a few more well-known pools to distribute the load
+servers time.nist.gov
+servers clock.via.net
+servers clock.isc.org

@@ -17,9 +17,9 @@ pf_enable="YES"
 pf_rules="/etc/pf.conf"
 pf_flags="-F all"
 
-# network time
-#ntpd_enable="YES"
-#ntpd_sync_on_start="YES"
+# net time sync
+openntpd_enable="YES"
+openntpd_flags="-sv"
 
 syslogd_enable="YES"
 syslogd_flags="-ss" # Secure mode. No network sockets
