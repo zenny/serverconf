@@ -19,7 +19,7 @@ pf_flags="-F all"
 
 # net time sync
 openntpd_enable="YES"
-openntpd_flags="-sv"
+openntpd_flags="-s"
 
 syslogd_enable="YES"
 syslogd_flags="-ss" # Secure mode. No network sockets
