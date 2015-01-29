@@ -1,4 +1,0 @@
-# Added by www jail ...
-# Mount the host app files within the jail as read-only.
-# Replace these vars in jails/www/preconf when we have the locations.
-$HOST_APP  $JAIL_APP  nullfs  ro  0  0
