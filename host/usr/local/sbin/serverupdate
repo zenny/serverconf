@@ -3,12 +3,19 @@
 print_help () {
   echo "Usage: $(basename $0) [options]" >&2;
   echo "Options:" >&2;
+  echo " -l  List installed packages" >&2;
   echo " -p  Install ports" >&2;
   echo " -h  Print this help message" >&2;
 }
 
-while getopts "ph" opt; do
+list_packages () {
+  pkg version -vR
+  pkg audit -F >&2;
+}
+
+while getopts "lph" opt; do
   case $opt in
+    l) list_packages; exit 0;;
     p) INSTALL_PORTS=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
@@ -52,6 +59,6 @@ if [ -d /usr/ports ]; then
 elif [ -n "$INSTALL_PORTS" ]; then
   portsnap fetch extract
 
-  #install portmaster
+  #install port utils
   cd /usr/ports/ports-mgmt/portmaster && env WITH="BASH" BATCH=1 make install clean
 fi

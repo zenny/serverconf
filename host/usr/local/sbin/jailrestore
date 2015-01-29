@@ -1,0 +1,3 @@
+#!/bin/sh
+
+ezjail-admin create -a "$ARCHIVE_FILE"

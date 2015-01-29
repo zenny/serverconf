@@ -4,16 +4,18 @@ APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] [jailname]" >&2;
-	echo "Options:" >&2;
-	echo " -A  Update all jails" >&2;
+  echo "Options:" >&2;
+  echo " -b  Update the system basejail before jail" >&2;
+  echo " -A  Update all jails" >&2;
 }
 
 ##
 ## Parse args and get jail environmental vars
 ##
 
-while getopts "Ah" opt; do
+while getopts "bAh" opt; do
   case $opt in
+    b) UPDATE_BASEJAIL=1;;
     A) UPDATE_ALL_FLAG=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
@@ -64,7 +66,18 @@ jail_hook () {
       sh -e "$APP_ROOT/src/jail-hook.sh" "$hookname" "$hookenv"
 }
 
+
 ## And off we go ...
+
+if [ -n "$UPDATE_BASEJAIL" ]; then
+  #update basejail using freebsd-update. currently broke
+  #ezjail-admin update -u
+
+  #update the basejail ports tree
+  if [ -d /usr/jails/basejail/usr/ports ]; then
+    ezjail-admin update -P
+  fi
+fi
 
 if [ -z "$JAIL_UP" ]; then
   echo "Jail is not currently running, required for update ..."

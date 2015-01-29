@@ -1,0 +1,64 @@
+#!/bin/sh
+
+APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
+#ezjail default is /usr/jails/ezjail_archives
+JAIL_SAVE_DIR="$APP_ROOT/saved-jails"
+
+print_help () {
+  echo "Usage: $(basename $0) [options] [jailname]" >&2;
+  echo "Options:" >&2;
+  echo " -f      Do not stop a running jail before saving" >&2;
+  echo " -d=dir  Directory to store saved jails [$JAIL_SAVE_DIR]" >&2;
+}
+
+while getopts "d:fh" opt; do
+  case $opt in
+    d) JAIL_SAVE_DIR="$OPTARG";;
+    f) FORCE_FLAG=1;;
+    h) print_help; exit 0;;
+    \?) print_help; exit 1;;
+  esac
+done
+
+for lastarg; do true; done
+JAIL_NAME="$lastarg"
+
+if [ -z "$JAIL_NAME" ]; then print_help; exit 1; fi
+
+#ezjail-admin lists all installed jails, running or not
+jail_rec=$(ezjail-admin list | tail -n +3 | grep "\b$JAIL_NAME\b")
+
+if [ -n "$jail_rec" ]; then
+  JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
+else
+  echo "$(basename $0): Jail '$JAIL_NAME' is not installed, exiting." >&2;
+  exit 1
+fi
+
+if [ $(echo "$jail_rec" | awk '{print $2}') != 'N/A' ]; then
+  JAIL_UP=1
+fi
+
+
+if [ ! -d "$JAIL_SAVE_DIR" ]; then
+  mkdir -p "$JAIL_SAVE_DIR"
+fi
+
+
+if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
+  echo "Stopping jail before saving ..."
+  ezjail-admin stop "$JAIL_NAME"
+fi
+
+# jails should be stopped before running. -f does it while running
+# should the default be to stop, or to exit?
+if [ -n "$FORCE_FLAG" ]; then
+  ezjail-admin archive -f -d "$JAIL_SAVE_DIR" "$JAIL_NAME"
+else
+  ezjail-admin archive -d "$JAIL_SAVE_DIR" "$JAIL_NAME"
+fi
+
+if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
+  echo "Restarting jail ..."
+  ezjail-admin start "$JAIL_NAME"
+fi
