@@ -10,6 +10,11 @@ EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_NAME"
 SERVERCONF_FILE="/usr/jails/$JAIL_NAME/etc/serverconf"
 JAIL_TYPE_DEFAULT='default'
 
+#if set, deletes the jail install on an aborted script hook attempt
+if [ -n "$REMOVE_JAIL_ON_ERROR" -a "$REMOVE_JAIL_ON_ERROR" -eq 0 ]; then
+  REMOVE_JAIL_ON_ERROR='';
+fi
+
 ##
 ## CHECK PARAMS
 ##
@@ -55,6 +60,16 @@ JAIL_CONF_DIR=$(sh -e "$APP_ROOT/src/get-jail-conf.sh" "$JAIL_TYPE")
 ## HOOK EXECUTION ENVIRONMENTS
 ##
 
+abort_cleanup () {
+  if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then
+    if ezjail-admin delete -w "$JAIL_NAME"; then
+      echo "Removing jail '$JAIL_NAME'" >&2;
+    else
+      echo "Unable to remove jail '$JAIL_NAME'" >&2;
+    fi
+  fi
+}
+
 run_script_host () {
   local hook_script="$1" jail_type="$2"
 
@@ -73,7 +88,9 @@ run_script_host () {
          SERVERCONF_FILE="$SERVERCONF_FILE" \
          APP_ROOT="$APP_ROOT" \
          sh -e "$hook_script"; then
-      echo "Error running '$jail_type/$HOOK_NAME', continuing" >&2
+      echo "Error running '$jail_type/$HOOK_NAME', aborting." >&2
+      abort_cleanup
+      exit 1;
     fi
   fi
 }
@@ -102,7 +119,11 @@ run_script_jail () {
            SERVERCONF_FILE="/etc/serverconf" \
            APP_ROOT="$APP_ROOT" \
            jexec "$JAIL_NAME" sh -e "/tmp/$jail_type/$(basename $hook_script)"; then
-        echo "Error running '$jail_type/$HOOK_NAME', continuing" >&2
+        echo "Error running '$jail_type/$HOOK_NAME', aborting." >&2
+        abort_cleanup
+        umount "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+        rm -rf "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+        exit 1;
       fi
     fi
     umount "/usr/jails/$JAIL_NAME/tmp/$jail_type"

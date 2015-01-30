@@ -80,8 +80,10 @@ fi
 ##
 
 jail_hook () {
-  local hookname="$1" hookenv="$2"
-  env JAIL_IP="$JAIL_IP" \
+  local hookname="$1" hookenv="$2" removeonerror=1
+  if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then removeonerror="$REMOVE_JAIL_ON_ERROR"; fi
+  env REMOVE_JAIL_ON_ERROR="$removeonerror" \
+      JAIL_IP="$JAIL_IP" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
