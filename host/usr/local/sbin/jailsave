@@ -6,21 +6,21 @@ JAIL_SAVE_DIR="$APP_ROOT/saved-jails"
 JAIL_TYPE_DEFAULT='default'
 
 print_help () {
-  echo "Usage: $(basename $0) [options] [jailname]" >&2;
+  echo "Usage: $(basename $0) [options] jailname" >&2;
   echo "Options:" >&2;
-  echo " -f           Do not stop a running jail before saving" >&2;
+  echo " -f           Save a running jail without stopping it (not advised)" >&2;
   echo " -d=dir       Directory to save the jail archive [$JAIL_SAVE_DIR]" >&2;
-  echo " -n=filename  File basename for saved jail archive [jailname-conftype-hostname-date]" >&2;
-  echo " -N           Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
+  echo " -n=filename  Name of the saved jail archive (default format: jailname-conftype-hostname-date)" >&2;
+	echo " -X           Don't run the '$JAIL_TYPE_DEFAULT' save hooks" >&2;
   echo " -h           Print this help message" >&2;
 }
 
-while getopts "d:n:fNh" opt; do
+while getopts "d:n:fXh" opt; do
   case $opt in
     d) JAIL_SAVE_DIR="$OPTARG";;
     n) JAIL_SAVE_NAME="$OPTARG";;
     f) FORCE_FLAG=1;;
-    N) NO_DEFAULT_HOOK=1;;
+    X) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac

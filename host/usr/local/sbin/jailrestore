@@ -5,20 +5,20 @@ JAIL_TYPE_DEFAULT='default'
 
 print_help () {
   echo "Usage: $(basename $0) [options] -i=ipaddr jailarchive" >&2;
-  echo " -i=ipaddr  Address to bind jail" >&2;
+  echo " -i=ipaddr    Address to bind jail" >&2;
   echo "Options:" >&2;
-  echo " -n=name    Name of jail" >&2;
-  echo " -s         Don't start jail when it's restored" >&2;
-  echo " -N         Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
-  echo " -h         Print this help message" >&2;
+  echo " -n=jailname  Name of jail" >&2;
+  echo " -S           Don't automatically start the jail once it's restored" >&2;
+  echo " -X           Don't run the '$JAIL_TYPE_DEFAULT' restore hooks" >&2;
+  echo " -h           Print this help message" >&2;
 }
 
-while getopts "n:i:sNh" opt; do
+while getopts "n:i:SXh" opt; do
   case $opt in
     n) JAIL_NAME="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
-    s) NO_START_FLAG=1;;
-    N) NO_DEFAULT_HOOK=1;;
+    S) NO_START_FLAG=1;;
+    X) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac

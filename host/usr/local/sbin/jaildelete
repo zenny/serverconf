@@ -5,13 +5,13 @@ JAIL_TYPE_DEFAULT='default'
 print_help () {
   echo "Usage: $(basename $0) [options] jailname" >&2;
   echo "Options:" >&2;
-  echo " -N         Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
-  echo " -h         Print this help message" >&2;
+  echo " -X  Don't run the '$JAIL_TYPE_DEFAULT' delete hooks" >&2;
+  echo " -h  Print this help message" >&2;
 }
 
-while getopts "Nh" opt; do
+while getopts "Xh" opt; do
   case $opt in
-    N) NO_DEFAULT_HOOK=1;;
+    X) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
