@@ -15,19 +15,36 @@ print_help () {
   echo " -i=ipaddr  Address to bind jail" >&2;
   echo "Options:" >&2;
   echo " -n=name    Jail name" >&2;
-  echo " -c=conf    Jail config type (see $APP_ROOT/jails)" >&2;
+  echo " -c=conf    Jail configuration type (see $APP_ROOT/jails)" >&2;
+  echo " -l         List available jail configurations (uses SERVERCONF_JAIL_PATH)" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
-  echo " -N         Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
+  echo " -N         Don't run the '$JAIL_TYPE_DEFAULT' hooks when creating jail" >&2;
   echo " -h         Print this help message" >&2;
 }
 
-while getopts "n:i:c:u:Nh" opt; do
+#doesn't verify validly, just their names
+print_jail_confs () {
+  if [ -n "$SERVERCONF_JAIL_PATH" ]; then
+    echo "User jail configurations:" >&2;
+    for dir in $(echo "$SERVERCONF_JAIL_PATH" | tr ':' ' '); do
+      echo "  $(basename $dir)"
+    done
+  fi
+  echo "Default jail configurations:"
+  cd "$APP_ROOT/jails"
+  for dir in $(find . ! -path . -type d -maxdepth 1); do
+    echo "  $(basename $dir)"
+  done
+}
+
+while getopts "n:i:c:u:Nlh" opt; do
   case $opt in
     n) JAIL_NAME="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
     c) JAIL_TYPE="$OPTARG";;
     u) JAIL_USER="$OPTARG";;
     N) NO_DEFAULT_HOOK=1;;
+    l) print_jail_confs; exit 0;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
