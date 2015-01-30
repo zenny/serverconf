@@ -1,5 +1,5 @@
 #!/bin/sh
 
-pkg install rabbitmq
+pkg install --yes rabbitmq
 
 service rabbitmq start
