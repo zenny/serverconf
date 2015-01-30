@@ -1,18 +1,22 @@
 #!/bin/sh
 
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
+JAIL_TYPE_DEFAULT='default'
 
 print_help () {
   echo "Usage: $(basename $0) [options] [jailname]" >&2;
   echo "Options:" >&2;
   echo " -b  Update the system basejail before jail" >&2;
   echo " -A  Update all jails" >&2;
+  echo " -N  Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
+  echo " -h  Print this help message" >&2;
 }
 
-while getopts "bAh" opt; do
+while getopts "bANh" opt; do
   case $opt in
     b) UPDATE_BASEJAIL=1;;
     A) UPDATE_ALL_FLAG=1;;
+    N) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -50,7 +54,8 @@ fi
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
+  env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
 

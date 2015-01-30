@@ -3,6 +3,7 @@
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #ezjail default is /usr/jails/ezjail_archives
 JAIL_SAVE_DIR="$APP_ROOT/saved-jails"
+JAIL_TYPE_DEFAULT='default'
 
 print_help () {
   echo "Usage: $(basename $0) [options] [jailname]" >&2;
@@ -10,13 +11,16 @@ print_help () {
   echo " -f           Do not stop a running jail before saving" >&2;
   echo " -d=dir       Directory to save the jail archive [$JAIL_SAVE_DIR]" >&2;
   echo " -n=filename  File basename for saved jail archive [jailname-conftype-hostname-date]" >&2;
+  echo " -N           Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
+  echo " -h           Print this help message" >&2;
 }
 
-while getopts "d:n:fh" opt; do
+while getopts "d:n:fNh" opt; do
   case $opt in
     d) JAIL_SAVE_DIR="$OPTARG";;
     n) JAIL_SAVE_NAME="$OPTARG";;
     f) FORCE_FLAG=1;;
+    N) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -60,7 +64,8 @@ fi
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  env JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
+  env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 

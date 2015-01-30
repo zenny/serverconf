@@ -1,13 +1,17 @@
 #!/bin/sh -e
 
+JAIL_TYPE_DEFAULT='default'
+
 print_help () {
   echo "Usage: $(basename $0) [options] jailname" >&2;
   echo "Options:" >&2;
+  echo " -N         Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
   echo " -h         Print this help message" >&2;
 }
 
-while getopts "h" opt; do
+while getopts "Nh" opt; do
   case $opt in
+    N) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -35,7 +39,8 @@ APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 
 jail_hook () {
   local hookname="$1" hookenv="$2"
-  sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
+  env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
 

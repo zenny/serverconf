@@ -14,20 +14,20 @@ print_help () {
   echo "Usage: $(basename $0) [options] -i=ipaddr" >&2;
   echo " -i=ipaddr  Address to bind jail" >&2;
   echo "Options:" >&2;
-  echo " -n=name    Name of jail" >&2;
+  echo " -n=name    Jail name" >&2;
   echo " -c=conf    Jail config type (see $APP_ROOT/jails)" >&2;
   echo " -u=user    Add user to jail [default is current user]" >&2;
+  echo " -N         Don't run the hooks for '$JAIL_TYPE_DEFAULT'" >&2;
   echo " -h         Print this help message" >&2;
 }
 
-## Parse options
-
-while getopts "n:i:c:u:h" opt; do
+while getopts "n:i:c:u:Nh" opt; do
   case $opt in
     n) JAIL_NAME="$OPTARG";;
     i) JAIL_IP="$OPTARG";;
     c) JAIL_TYPE="$OPTARG";;
     u) JAIL_USER="$OPTARG";;
+    N) NO_DEFAULT_HOOK=1;;
     h) print_help; exit 0;;
     \?) print_help; exit 1;;
   esac
@@ -38,9 +38,38 @@ if [ $(id -u) != 0 ]; then
   exit 1
 fi
 
+##
+## GET PARAMS
+##
+
 if [ -z "$JAIL_TYPE" ]; then JAIL_TYPE="$JAIL_TYPE_DEFAULT"; fi
 
 JAIL_CONF_DIR=$(sh -e "$APP_ROOT/src/get-jail-conf.sh" "$JAIL_TYPE")
+
+# Generate JAIL_NAME if not provided
+
+if [ -z "$JAIL_NAME" ]; then
+  #find the highest number of a given type
+  n=$(find "/usr/local/etc/ezjail" -name "$JAIL_TYPE*" -type f -maxdepth 1 | \
+         xargs -n1 basename | sort -r | head -n1 | tr -cd '[:digit:]')
+
+  #test if number
+  if echo "$n" | egrep -q '^[0-9]+$'; then
+    #increment by one and pad out two places
+    n=$(printf "%02d" "$((n+1))")
+  else
+    n='00'
+  fi
+  JAIL_NAME="${JAIL_TYPE}$n"
+fi
+
+#ezjail converts all non-alphanums to underscore, we should too
+JAIL_NAME=$(echo -n "$JAIL_NAME" | tr -c '[[:alnum:]]' '_')
+
+if [ -e "/usr/local/etc/ezjail/$JAIL_NAME" ]; then
+  echo "$(basename $0): Jail '$JAIL_NAME' already exists, use a different name." >&2;
+  exit 1
+fi
 
 if [ -z "$JAIL_IP" ]; then
   print_help
@@ -54,31 +83,8 @@ elif jls -v | grep "$JAIL_IP" > /dev/null; then
 fi
 
 ##
-## Generate JAIL_NAME if not provided
-##
-
-if [ -z "$JAIL_NAME" ]; then
-  #get the last jid (jid is incremented on start/restart)
-  jid=$(jls | tail -1 | awk '{print $1}')
-  if [ $jid == 'JID' ]; then
-    jid=0
-  else
-    #1 plus the last jid at least guarantees a unique name, not descriptive though
-    jid=$((jid+1))
-  fi
-  JAIL_NAME="${JAIL_TYPE}$jid"
-fi
-
-#ezjail converts all non-alphanums to underscore, we should too
-JAIL_NAME=$(echo -n "$JAIL_NAME" | tr -c '[[:alnum:]]' '_')
-
-if [ -e "/usr/local/etc/ezjail/$JAIL_NAME" ]; then
-  echo "$(basename $0): Jail '$JAIL_NAME' already exists, use a different name." >&2;
-  exit 1
-fi
-
-
 ## Helper functions
+##
 
 cp_conf () {
   local srcpath="$1" destdir="$2" replacevars="$3" ignorevars="$4"
@@ -93,9 +99,10 @@ cp_conf () {
 }
 
 jail_hook () {
-  local hookname="$1" hookenv="$2" removeonerror=1
+  local hookname="$1" hookenv="$2" removeonerror=1;
   if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then removeonerror="$REMOVE_JAIL_ON_ERROR"; fi
   env REMOVE_JAIL_ON_ERROR="$removeonerror" \
+      NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
       JAIL_USER="$JAIL_USER" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }

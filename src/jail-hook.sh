@@ -10,9 +10,17 @@ EZJAIL_CONF="/usr/local/etc/ezjail/$JAIL_NAME"
 SERVERCONF_FILE="/usr/jails/$JAIL_NAME/etc/serverconf"
 JAIL_TYPE_DEFAULT='default'
 
-#if set, deletes the jail install on an aborted script hook attempt
-if [ -n "$REMOVE_JAIL_ON_ERROR" -a "$REMOVE_JAIL_ON_ERROR" -eq 0 ]; then
-  REMOVE_JAIL_ON_ERROR='';
+#if set and not zero, delete the jail install on an aborted script hook attempt
+if [ -n "$REMOVE_JAIL_ON_ERROR" ] &&  echo "$REMOVE_JAIL_ON_ERROR" | egrep -q '^[0-9]+$'; then
+  if [ "$REMOVE_JAIL_ON_ERROR" -eq 0 ]; then
+    REMOVE_JAIL_ON_ERROR='';
+  fi
+fi
+#if set and not zero, do not run the default hooks
+if [ -n "$NO_DEFAULT_HOOK" ] &&  echo "$NO_DEFAULT_HOOK" | egrep -q '^[0-9]+$'; then
+  if [ "$NO_DEFAULT_HOOK" -eq 0 ]; then
+    NO_DEFAULT_HOOK='';
+  fi
 fi
 
 ##
@@ -62,7 +70,7 @@ JAIL_CONF_DIR=$(sh -e "$APP_ROOT/src/get-jail-conf.sh" "$JAIL_TYPE")
 
 abort_cleanup () {
   if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then
-    if ezjail-admin delete -w "$JAIL_NAME"; then
+    if ezjail-admin delete -f -w "$JAIL_NAME"; then
       echo "Removing jail '$JAIL_NAME'" >&2;
     else
       echo "Unable to remove jail '$JAIL_NAME'" >&2;
@@ -120,9 +128,9 @@ run_script_jail () {
            APP_ROOT="$APP_ROOT" \
            jexec "$JAIL_NAME" sh -e "/tmp/$jail_type/$(basename $hook_script)"; then
         echo "Error running '$jail_type/$HOOK_NAME', aborting." >&2
-        abort_cleanup
         umount "/usr/jails/$JAIL_NAME/tmp/$jail_type"
         rm -rf "/usr/jails/$JAIL_NAME/tmp/$jail_type"
+        abort_cleanup
         exit 1;
       fi
     fi
@@ -138,7 +146,9 @@ run_script_jail () {
 cd "$JAIL_CONF_DIR"
 
 #grab jail hook file, ignore file extension, only return first match (shouldn't be)
-HOOK_DEFAULT_FILE=$(find "$APP_ROOT/jails/$JAIL_TYPE_DEFAULT" -name "$HOOK_NAME*" -type f -maxdepth 1 | head -n1)
+if [ -z "$NO_DEFAULT_HOOK" ]; then
+  HOOK_DEFAULT_FILE=$(find "$APP_ROOT/jails/$JAIL_TYPE_DEFAULT" -name "$HOOK_NAME*" -type f -maxdepth 1 | head -n1)
+fi
 HOOK_FILE=$(find "$JAIL_CONF_DIR" -name "$HOOK_NAME*" -type f -maxdepth 1 | head -n1)
 
 ##
@@ -146,7 +156,9 @@ HOOK_FILE=$(find "$JAIL_CONF_DIR" -name "$HOOK_NAME*" -type f -maxdepth 1 | head
 ##
 
 if [ "$HOOK_ENV" == 'host' ]; then
-  run_script_host "$HOOK_DEFAULT_FILE" "$JAIL_TYPE_DEFAULT"
+  if [ -z "$NO_DEFAULT_HOOK" ]; then
+    run_script_host "$HOOK_DEFAULT_FILE" "$JAIL_TYPE_DEFAULT"
+  fi
 
   #don't want to run the default twice
   if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" ]; then
@@ -159,7 +171,9 @@ fi
 ##
 
 if [ "$HOOK_ENV" == 'jail' ]; then
-  run_script_jail "$HOOK_DEFAULT_FILE" "$JAIL_TYPE_DEFAULT"
+  if [ -z "$NO_DEFAULT_HOOK" ]; then
+    run_script_jail "$HOOK_DEFAULT_FILE" "$JAIL_TYPE_DEFAULT"
+  fi
 
   if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" ]; then
     run_script_jail "$HOOK_FILE" "$JAIL_TYPE"
