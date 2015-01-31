@@ -183,6 +183,13 @@ if ! ezjail-admin start "$JAIL_NAME"; then
   exit 1
 fi
 
+## The order here can get tricky depending on the package.
+## Usually you'll want to install packages and their conf files
+## in the conf hook, then append to afterward. But if youe need
+## to use the service in the conf hook (like postgres), you'll
+## need to onestart it, or put it in the postconf hook (even though
+## that's run from the host.
+
 jail_hook 'conf' 'jail'
 
 # copy jail config to jail after conf has chance to install packages

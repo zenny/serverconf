@@ -5,8 +5,10 @@ pgpkg=$(pkg search postgres | grep "server" | tail -n 1 | cut -d '-' -f 1-2)
 
 pkg install --yes "$pgpkg"
 
-service postgresql initdb
-service postgresql start
+# jail conf files are copied over after this script runs,
+# but we need to start it now
+service postgresql oneinitdb
+service postgresql onestart
 
 if [ -n "$JAIL_USER" ]; then
   DBNAME="$JAIL_USER"
