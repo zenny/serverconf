@@ -2,6 +2,7 @@
 
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 JAIL_TYPE_DEFAULT='default'
+LOG_NAME="$(basename $0)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] -i=ipaddr jailarchive" >&2;
@@ -87,6 +88,7 @@ jail_hook () {
   if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then removeonerror="$REMOVE_JAIL_ON_ERROR"; fi
   env REMOVE_JAIL_ON_ERROR="$removeonerror" \
       NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      LOG_NAME="$LOG_NAME" \
       JAIL_IP="$JAIL_IP" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
@@ -106,7 +108,7 @@ jail_hook 'restore' 'jail'
 jail_hook 'postrestore' 'host'
 
 if [ -z "$NO_START_FLAG" ]; then
-  echo "Jail restored and running as '$JAIL_NAME'"
+  echo "[$LOG_NAME] Jail restored and running as '$JAIL_NAME'"
 else
-  echo "Jail restored as '$JAIL_NAME'"
+  echo "[$LOG_NAME] Jail restored as '$JAIL_NAME'"
 fi

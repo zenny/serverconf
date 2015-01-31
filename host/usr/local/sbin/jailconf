@@ -9,6 +9,7 @@ APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #add current user to jail by default (even if sudo'd)
 JAIL_USER="$(who -m | cut -d ' ' -f1)"
 JAIL_TYPE_DEFAULT='default'
+LOG_NAME="$(basename $0)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] -i=ipaddr" >&2;
@@ -120,6 +121,7 @@ jail_hook () {
   if [ -n "$REMOVE_JAIL_ON_ERROR" ]; then removeonerror="$REMOVE_JAIL_ON_ERROR"; fi
   env REMOVE_JAIL_ON_ERROR="$removeonerror" \
       NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      LOG_NAME="$LOG_NAME" \
       JAIL_USER="$JAIL_USER" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
@@ -161,10 +163,12 @@ jail_hook 'preconf' 'host'
 # copy jail config to host
 
 if [ -d "$JAIL_DEFAULT_CONF_DIR/host" ]; then
+  echo "[$LOG_NAME] Copying host config files from $JAIL_DEFAULT_CONF_DIR"
   cp_conf "$JAIL_DEFAULT_CONF_DIR/host" /
 fi
 
 if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" -a -d "$JAIL_CONF_DIR/host" ]; then
+  echo "[$LOG_NAME] Copying host config files from $JAIL_CONF_DIR"
   cp_conf "$JAIL_CONF_DIR/host" /
 fi
 
@@ -172,24 +176,26 @@ fi
 # Conf - start jail and run scripts within it
 #
 
-echo "Configuring jail ..."
+echo "[$LOG_NAME] Configuring jail ..."
 
 if ! ezjail-admin start "$JAIL_NAME"; then
   echo "$(basename $0): Unable to start jail, aborting." >&2;
   exit 1
 fi
 
+jail_hook 'conf' 'jail'
+
 # copy jail config to jail after conf has chance to install packages
 
 if [ -d "$JAIL_DEFAULT_CONF_DIR/jail" ]; then
+  echo "[$LOG_NAME] Copying jail config files from $JAIL_DEFAULT_CONF_DIR"
   cp_conf "$JAIL_DEFAULT_CONF_DIR/jail" "/usr/jails/$JAIL_NAME"
 fi
 
 if [ "$JAIL_TYPE" != "$JAIL_TYPE_DEFAULT" -a -d "$JAIL_CONF_DIR/jail" ]; then
+  echo "[$LOG_NAME] Copying jail config files from $JAIL_CONF_DIR"
   cp_conf "$JAIL_CONF_DIR/jail" "/usr/jails/$JAIL_NAME"
 fi
-
-jail_hook 'conf' 'jail'
 
 #
 # Postconf
@@ -197,11 +203,11 @@ jail_hook 'conf' 'jail'
 
 jail_hook 'postconf' 'host'
 
-echo "Restarting jail ..."
+echo "[$LOG_NAME] Restarting jail ..."
 
 if ! ezjail-admin restart "$JAIL_NAME"; then
   echo "$(basename $0): Unable to restart jail, aborting." >&2;
   exit 1
 fi
 
-echo "$JAIL_NAME jail running on $JAIL_IP"
+echo "[$LOG_NAME] $JAIL_NAME jail running on $JAIL_IP"

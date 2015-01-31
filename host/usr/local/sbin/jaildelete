@@ -1,6 +1,7 @@
 #!/bin/sh -e
 
 JAIL_TYPE_DEFAULT='default'
+LOG_NAME="$(basename $0)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] jailname" >&2;
@@ -40,6 +41,7 @@ APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 jail_hook () {
   local hookname="$1" hookenv="$2"
   env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      LOG_NAME="$LOG_NAME" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
@@ -56,4 +58,4 @@ fi
 
 jail_hook 'postdelete' 'host'
 
-echo "Jail '$JAIL_NAME' deleted."
+echo "[$LOG_NAME] Jail '$JAIL_NAME' deleted."

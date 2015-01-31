@@ -2,6 +2,7 @@
 
 APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 JAIL_TYPE_DEFAULT='default'
+LOG_NAME= "$(basename $0)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] jailname" >&2;
@@ -44,7 +45,7 @@ if [ $(echo "$jail_rec" | awk '{print $2}') != 'N/A' ]; then
 fi
 
 if [ $(id -u) != 0 ]; then
-  echo "This script must be run as root." 1>&2
+  echo "$(basename $0): This script must be run as root." 1>&2
   exit 1
 fi
 
@@ -55,6 +56,7 @@ fi
 jail_hook () {
   local hookname="$1" hookenv="$2"
   env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      LOG_NAME="$LOG_NAME" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
 
@@ -73,7 +75,7 @@ if [ -n "$UPDATE_BASEJAIL" ]; then
 fi
 
 if [ -z "$JAIL_UP" ]; then
-  echo "Jail is not currently running, required for update ..."
+  echo "[$LOG_NAME] Jail is not currently running, required for update ..."
   if ! ezjail-admin start "$JAIL_NAME"; then
     echo "$(basename $0): Unable to start jail '$JAIL_NAME', exiting" >&2
     exit 1
@@ -85,6 +87,6 @@ jail_hook 'update' 'jail'
 jail_hook 'preupdate' 'host'
 
 if [ -z "$JAIL_UP" ]; then
-  echo "Update complete. Returning jail to stopped state ..."
+  echo "[$LOG_NAME] Update complete. Returning jail to stopped state ..."
   ezjail-admin stop "$JAIL_NAME"
 fi

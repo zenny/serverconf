@@ -4,6 +4,7 @@ APP_ROOT="$(cd $(dirname $(readlink -f $0))/../../../..; pwd)"
 #ezjail default is /usr/jails/ezjail_archives
 JAIL_SAVE_DIR="$APP_ROOT/saved-jails"
 JAIL_TYPE_DEFAULT='default'
+LOG_NAME="$(basename $0)"
 
 print_help () {
   echo "Usage: $(basename $0) [options] jailname" >&2;
@@ -11,7 +12,7 @@ print_help () {
   echo " -f           Save a running jail without stopping it (not advised)" >&2;
   echo " -d=dir       Directory to save the jail archive [$JAIL_SAVE_DIR]" >&2;
   echo " -n=filename  Name of the saved jail archive (default format: jailname-conftype-hostname-date)" >&2;
-	echo " -X           Don't run the '$JAIL_TYPE_DEFAULT' save hooks" >&2;
+  echo " -X           Don't run the '$JAIL_TYPE_DEFAULT' save hooks" >&2;
   echo " -h           Print this help message" >&2;
 }
 
@@ -65,6 +66,7 @@ fi
 jail_hook () {
   local hookname="$1" hookenv="$2"
   env NO_DEFAULT_HOOK="$NO_DEFAULT_HOOK" \
+      LOG_NAME="$LOG_NAME" \
       JAIL_SAVE_NAME="$JAIL_SAVE_NAME" \
       sh -e "$APP_ROOT/src/jail-hook.sh" "$JAIL_NAME" "$hookname" "$hookenv"
 }
@@ -75,7 +77,7 @@ jail_hook 'presave' 'host'
 jail_hook 'save' 'jail'
 
 if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
-  echo "Stopping jail before saving ..."
+  echo "[$LOG_NAME] Stopping jail before saving ..."
   if ! ezjail-admin stop "$JAIL_NAME"; then
     echo "$(basename $0): Unable to stop jail, aborting." >&2;
     exit 1
@@ -87,7 +89,7 @@ if [ -n "$FORCE_FLAG" ]; then
   ezjail_args='-f'
 fi
 
-echo -n "Saving jail archive ... "
+echo -n "[$LOG_NAME] Saving jail archive ... "
 
 if [ ! -d "$JAIL_SAVE_DIR" ]; then
   mkdir -p "$JAIL_SAVE_DIR"
@@ -101,7 +103,7 @@ else
 fi
 
 if [ -n "$JAIL_UP" -a -z "$FORCE_FLAG" ]; then
-  echo "Restarting jail ..."
+  echo "[$LOG_NAME] Restarting jail ..."
   if ! ezjail-admin start "$JAIL_NAME"; then
     echo "$(basename $0): Unable to start jail, aborting." >&2;
     exit 1
@@ -110,4 +112,4 @@ fi
 
 jail_hook 'postsave' 'host'
 
-echo "Saved jail archive to ${JAIL_SAVE_DIR}/${JAIL_SAVE_NAME}.tar.gz"
+echo "[$LOG_NAME] Saved jail archive to ${JAIL_SAVE_DIR}/${JAIL_SAVE_NAME}.tar.gz"
