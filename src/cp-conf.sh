@@ -82,15 +82,16 @@ copy_conf_file () {
 
   mkdir -p "$(dirname $destpath)"
 
-  #append or overwrite
-  if echo "$srcpath" | grep '_append$' > /dev/null; then
-    cat "$srcpath" >> "$destpath"
-  else
-    cp "$srcpath" "$destpath"
+  #ignore, append, or overwrite
+  if ! echo "$srcpath" | grep '_ignore$' > /dev/null; then
+    if echo "$srcpath" | grep '_append$' > /dev/null; then
+      cat "$srcpath" >> "$destpath"
+    else
+      cp "$srcpath" "$destpath"
+    fi
+    #replace any of the allowed vars in the destination file
+    sub_vars "$destpath"
   fi
-
-  #replace any of the allowed vars in the destination file
-  sub_vars "$destpath"
 }
 
 # Go! ...
