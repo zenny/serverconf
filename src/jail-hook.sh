@@ -48,7 +48,7 @@ if [ ! -e "$EZJAIL_CONF" ]; then
 fi
 
 #the jail user is the one who called the script (even if sudo'd)
-if [ -n "$JAIL_USER" ]; then JAIL_USER="$(who -m | cut -d ' ' -f1)"; fi
+if [ -z "$JAIL_USER" ]; then JAIL_USER="$(who -m | cut -d ' ' -f1)"; fi
 
 JAIL_IP=$(echo "$jail_rec" | awk '{print $3}')
 

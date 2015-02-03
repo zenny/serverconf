@@ -1,0 +1,4 @@
+# added by db jail
+#allow jail user from 192.168.0.x to connect with password
+#	TYPE	DATABASE	USER					 ADDRESS				 METHOD
+host		all				$JAIL_USER		 192.168.0.0/24	 md5
