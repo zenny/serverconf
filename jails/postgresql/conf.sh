@@ -14,34 +14,48 @@ service postgresql onestart
 ## 'host-based authentication' defined in: /usr/local/pgsql/data/pg_hba.conf
 ## postgres is owned by the 'pgsql' user
 
-: ${DB_USER:="$JAIL_USER"}
-: ${DB_NAME:="$DB_USER"}
+#prompt for db user
+if [ "$JAIL_USER" == 'root' ]; then
+  read -p "Add a database account: " DB_USER
+  if [ -z "$DB_USER" ]; then
+    echo "Requires a non-root database account, skipping." >&2;
+    exit 0
+  fi
+else
+  read -p "Add a database account [$JAIL_USER]: " DB_USER
+  if [ -z "$DB_USER" ]; then DB_USER="$JAIL_USER"; fi
+fi
 
-if [ -n "$DB_USER" -a "$DB_USER" != 'root' ]; then
-  #get db user password
+#prompt db user password if not provided
+if [ -z "$DB_PASS" ]; then
   stty -echo
   read -p "Database password for '$DB_USER' (required): " DB_PASS; echo
   stty echo
+fi
+if [ -z "$DB_PASS" ]; then
+  echo "Password required for local network database connection, skipping account creation." >&2;
+  exit 0
+fi
 
-  if [ -z "$DB_PASS" ]; then
-    echo "Password required for local network access to database, skipping user creation." >&2;
-    exit 0
+#prompt user's database
+if [ -z "$DB_NAME" ]; then
+  read -p "Use database [$DB_USER]: " DB_NAME
+  if [ -z "$DB_NAME" ]; then DB_NAME="$DB_USER"; fi
+fi
 
-  else
-    # create user
-    if sudo -u pgsql psql -d postgres -c "create user $DB_USER with password '$DB_PASS';"; then
-      echo "Created database user '$DB_USER'"
-    else
-      echo "Unable to create user '$DB_USER', exiting." >&2;
-      exit 1;
-    fi
 
-    # create user's database
-    if sudo -u pgsql createdb --owner "$DB_USER" "$DB_NAME"; then
-      echo "Created database '$DB_NAME'"
-    else
-      echo "Unable to create databse '$DB_NAME', exiting" >&2;
-      exit 1
-    fi
-  fi
+# create user
+if sudo -u pgsql psql -d postgres -c "create user $DB_USER with password '$DB_PASS';"; then
+  echo "Created database user '$DB_USER'"
+else
+  echo "Unable to create user '$DB_USER', exiting." >&2;
+  exit 1;
+fi
+
+# create user's database
+if sudo -u pgsql createdb --owner "$DB_USER" "$DB_NAME"; then
+  echo "Created database '$DB_NAME'"
+else
+  echo "Unable to create databse '$DB_NAME', exiting" >&2;
+  exit 1
 fi
