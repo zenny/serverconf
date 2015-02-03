@@ -25,7 +25,12 @@ if [ -n "$DB_USER" -a "$DBL_USER" != 'root' ]; then
 
   #create user with(out) password
   if [ -n "$DB_PASS" ]; then
-    sudo -u pgsql psql -c "create user $DB_USER with password '$DB_PASS';"
+    if sudo -u pgsql psql -d postgres -c "create user $DB_USER with password '$DB_PASS';"; then
+      echo "Created database user '$DB_USER'"
+    else
+      echo "Unable to create user '$DB_USER', exiting." >&2;
+      exit 1;
+    fi
   else
     echo "No database password for $DB_USER" >&2;
     if sudo -u pgsql createuser --no-password "$DB_USER"; then
@@ -42,13 +47,5 @@ if [ -n "$DB_USER" -a "$DBL_USER" != 'root' ]; then
   else
     echo "Unable to create databse '$DB_NAME', exiting" >&2;
     exit 1
-  fi
-
-  #generate .pgpass file for db login
-  if [ -n "$DB_PASS" -a -d "/home/$JAIL_USER" ]; then
-    pgpassfile="/home/$JAIL_USER/.pgpass"
-    echo "$JAIL_IP:5432:$DB_NAME:$JAIL_USER:$DB_PASS" > "$pgpassfile"
-    chmod 600 "$pgpassfile"
-    echo "Created file $pgpassfile"
   fi
 fi
