@@ -20,32 +20,28 @@ service postgresql onestart
 if [ -n "$DB_USER" -a "$DB_USER" != 'root' ]; then
   #get db user password
   stty -echo
-  read -p "Database password for '$DB_USER': " DB_PASS; echo
+  read -p "Database password for '$DB_USER' (required): " DB_PASS; echo
   stty echo
 
-  #create user with(out) password
-  if [ -n "$DB_PASS" ]; then
+  if [ -z "$DB_PASS" ]; then
+    echo "Password required for local network access to database, skipping user creation." >&2;
+    exit 0
+
+  else
+    # create user
     if sudo -u pgsql psql -d postgres -c "create user $DB_USER with password '$DB_PASS';"; then
       echo "Created database user '$DB_USER'"
     else
       echo "Unable to create user '$DB_USER', exiting." >&2;
       exit 1;
     fi
-  else
-    echo "No database password for $DB_USER" >&2;
-    if sudo -u pgsql createuser --no-password "$DB_USER"; then
-      echo "Created database user '$DB_USER'"
-    else
-      echo "Unable to create user '$DB_USER', exiting." >&2;
-      exit 1;
-    fi
-  fi
 
-  #create database for user
-  if sudo -u pgsql createdb --owner "$DB_USER" "$DB_NAME"; then
-    echo "Created database '$DB_NAME'"
-  else
-    echo "Unable to create databse '$DB_NAME', exiting" >&2;
-    exit 1
+    # create user's database
+    if sudo -u pgsql createdb --owner "$DB_USER" "$DB_NAME"; then
+      echo "Created database '$DB_NAME'"
+    else
+      echo "Unable to create databse '$DB_NAME', exiting" >&2;
+      exit 1
+    fi
   fi
 fi
