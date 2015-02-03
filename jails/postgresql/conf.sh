@@ -18,8 +18,8 @@ service postgresql onestart
 if [ "$JAIL_USER" == 'root' ]; then
   read -p "Add a database account: " DB_USER
   if [ -z "$DB_USER" ]; then
-    echo "Requires a non-root database account, skipping." >&2;
-    exit 0
+    echo "Requires a non-root database account, exiting." >&2;
+    exit 1
   fi
 else
   read -p "Add a database account [$JAIL_USER]: " DB_USER
@@ -33,8 +33,8 @@ if [ -z "$DB_PASS" ]; then
   stty echo
 fi
 if [ -z "$DB_PASS" ]; then
-  echo "Password required for local network database connection, skipping account creation." >&2;
-  exit 0
+  echo "Password required for local network database connection, exiting." >&2;
+  exit 1
 fi
 
 #prompt user's database
