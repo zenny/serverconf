@@ -17,7 +17,7 @@ service postgresql onestart
 : ${DB_USER:="$JAIL_USER"}
 : ${DB_NAME:="$DB_USER"}
 
-if [ -n "$DB_USER" -a "$DBL_USER" != 'root' ]; then
+if [ -n "$DB_USER" -a "$DB_USER" != 'root' ]; then
   #get db user password
   stty -echo
   read -p "Database password for '$DB_USER': " DB_PASS; echo
