@@ -10,7 +10,7 @@ services within.
 
 To configure the host FreeBSD system, simply pass the remote account
 to log in with. This account needs to run the script with superuser
-privledges, so make sure it's a member of the *wheel* group. The
+privileges, so make sure it's a member of the *wheel* group. The
 script will prompt you for various user/passwords at the beginning but
 can then be run unattended:
 
@@ -70,7 +70,7 @@ See `./host/usr/local/bin` and `./host/usr/local/sbin` for some useful commands.
 
 # Remote SSH Access
 
-If your VM doesn't have any user accounts, you may need to permit
+If your VM has no user accounts, you may need to enable
 remote ssh access for `root`. In `/etc/ssh/sshd_config`, uncomment and
 set the option `PermitRootLogin yes`, then restart the server with
 `service sshd restart`.
